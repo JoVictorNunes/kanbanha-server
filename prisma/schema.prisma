@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Member {
+  id       String            @id @default(uuid())
+  email    String            @unique
+  name     String
+  password String
+  role     String
+  online   Boolean
+  projects Project[]
+  teams    MembersOnTeam[]
+  tasks    AssigneesOnTask[]
+}
+
+model Project {
+  id      String @id @default(uuid())
+  name    String @unique
+  owner   Member @relation(fields: [ownerId], references: [id])
+  ownerId String
+  teams   Team[]
+}
+
+model Team {
+  id        String          @id @default(uuid())
+  name      String
+  project   Project         @relation(fields: [projectId], references: [id])
+  projectId String
+  members   MembersOnTeam[]
+  tasks     Task[]
+}
+
+model MembersOnTeam {
+  member   Member @relation(fields: [memberId], references: [id])
+  memberId String
+  team     Team   @relation(fields: [teamId], references: [id])
+  teamId   String
+
+  @@id([memberId, teamId])
+}
+
+model AssigneesOnTask {
+  member   Member @relation(fields: [memberId], references: [id])
+  memberId String
+  task     Task   @relation(fields: [taskId], references: [id])
+  taskId   String
+
+  @@id([memberId, taskId])
+}
+
+model Task {
+  id              String            @id @default(uuid())
+  createdAt       DateTime
+  date            DateTime
+  description     String
+  finishedAt      DateTime?
+  inDevelopmentAt DateTime?
+  inReviewAt      DateTime?
+  dueDate         DateTime
+  assignees       AssigneesOnTask[]
+  status          String
+  team            Team              @relation(fields: [teamId], references: [id])
+  teamId          String
+}
