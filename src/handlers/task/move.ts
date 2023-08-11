@@ -1,6 +1,7 @@
 import Joi from "joi";
 import tasksService from "../../services/tasks.service";
 import teamsService from "../../services/teams.service";
+import { InternalServerException } from "../../exceptions";
 import type { KanbanhaServer, KanbanhaSocket } from "../../io";
 
 const scheme = Joi.object({
@@ -13,7 +14,6 @@ export default function update(io: KanbanhaServer, socket: KanbanhaSocket) {
     try {
       await scheme.validateAsync(data);
       const { status, taskId } = data;
-      console.log(taskId, status)
       const task = await tasksService.move(taskId, status);
 
       if (!task) return;
@@ -23,6 +23,9 @@ export default function update(io: KanbanhaServer, socket: KanbanhaSocket) {
       const membersToNotify = [...membersInTheTeam, teamOwner];
       io.to(membersToNotify).emit("tasks:update", task);
       callback({ code: 201, message: "Moved" });
-    } catch {}
+    } catch (e) {
+      const exception = new InternalServerException();
+      callback(exception);
+    }
   });
 }

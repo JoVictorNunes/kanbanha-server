@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { createHash } from "node:crypto";
@@ -23,7 +24,8 @@ import app from "./app";
 import httpServer from "./server";
 import io, { type SocketData } from "./io";
 
-const SECRET = "BLUESKY";
+const SECRET = process.env.SECRET || "";
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -154,14 +156,13 @@ io.use((socket, next) => {
 });
 
 io.on("connection", async (socket) => {
-  const member = socket.data.member;
-  if (!member) return;
+  const member = socket.data.member!;
 
   console.log("A connection was established...");
   console.log(`Member connected: name=${member.name} id=${member.id}`);
 
-  socket.use(([event, data], next) => {
-    console.log(`Member ${member.name} sent a message: event=${event} data=${data}`);
+  socket.use(([event], next) => {
+    console.log(`Member ${member.name} id=${member.id} sent a message: event=${event}`);
     next();
   });
 
@@ -194,4 +195,6 @@ io.on("connection", async (socket) => {
   });
 });
 
-httpServer.listen(3000);
+httpServer.listen(PORT, () => {
+  console.log(`Running on :${PORT}`);
+});

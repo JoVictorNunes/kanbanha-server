@@ -1,6 +1,6 @@
 export class BaseException extends Error {
-  constructor(public code: number, message: string) {
-    super(message);
+  constructor(public code: number, public message: string) {
+    super();
   }
 }
 

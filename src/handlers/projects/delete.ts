@@ -14,7 +14,6 @@ export default function del(io: KanbanhaServer, socket: KanbanhaSocket) {
       await projectService.delete(projectId);
       io.to(membersToNotify).emit("projects:delete", projectId);
     } catch (e) {
-      console.log(e)
       if (e instanceof Joi.ValidationError) {
         callback({ code: 400, message: e.message });
         return;

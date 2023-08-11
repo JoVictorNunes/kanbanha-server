@@ -1,6 +1,7 @@
 import Joi from "joi";
 import tasksService from "../../services/tasks.service";
 import teamsService from "../../services/teams.service";
+import { InternalServerException } from "../../exceptions";
 import type { KanbanhaServer, KanbanhaSocket } from "../../io";
 
 const scheme = Joi.string().uuid().required();
@@ -16,7 +17,8 @@ export default function del(io: KanbanhaServer, socket: KanbanhaSocket) {
       callback({ code: 201, message: "Deleted" });
       io.to(membersToNotify).emit("tasks:delete", taskId);
     } catch (e) {
-        console.log(e)
+      const exception = new InternalServerException();
+      callback(exception);
     }
   });
 }
