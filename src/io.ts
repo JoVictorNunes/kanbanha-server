@@ -21,6 +21,7 @@ type Task = {
   assignees: UUID[];
   status: "active" | "ongoing" | "review" | "finished";
   teamId: UUID;
+  index: number;
 };
 
 type Team = {
@@ -70,6 +71,7 @@ type TasksDeleteData = UUID;
 type TasksMoveData = {
   taskId: UUID;
   status: Task["status"];
+  index: number;
 };
 
 type MemberCreateData = {

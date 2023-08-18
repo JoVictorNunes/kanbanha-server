@@ -70,4 +70,5 @@ model Task {
   status          String
   team            Team              @relation(fields: [teamId], references: [id])
   teamId          String
+  index           Int
 }

@@ -67,6 +67,7 @@ class TasksService {
               id: teamId,
             },
           },
+          index: await ctx.task.count({ where: { teamId, status } }),
           ...times,
         },
       });
@@ -166,11 +167,40 @@ class TasksService {
     });
   }
 
-  async move(taskId: string, status: string) {
+  async move(taskId: string, status: string, index: number) {
     return prisma.$transaction(async (ctx) => {
       const task = await ctx.task.findUniqueOrThrow({ where: { id: taskId } });
-
-      if (task.status === status) return;
+      if (task.status === status) {
+        if (task.index === index) return [];
+        let minBound: number, maxBound: number, operation: "increment" | "decrement";
+        if (index > task.index) {
+          minBound = task.index;
+          maxBound = index + 1;
+          operation = "decrement";
+        } else {
+          minBound = index - 1;
+          maxBound = task.index;
+          operation = "increment";
+        }
+        await ctx.task.updateMany({
+          where: { teamId: task.teamId, status, index: { gt: minBound, lt: maxBound } },
+          data: { index: { [operation]: 1 } },
+        });
+        const updatedTask = await ctx.task.update({
+          where: { id: taskId },
+          data: { index },
+          include: { assignees: { select: { memberId: true } } },
+        });
+        const allTasks = await ctx.task.findMany({
+          where: { teamId: task.teamId, status },
+          include: { assignees: { select: { memberId: true } } },
+        });
+        return allTasks.map((t) => ({
+          ...t,
+          status: t.status as "active" | "ongoing" | "review" | "finished",
+          assignees: t.assignees.map((a) => a.memberId),
+        }));
+      }
 
       const changes: Partial<
         Nullable<{
@@ -239,19 +269,34 @@ class TasksService {
         }
       }
 
-      const updatedTask = await ctx.task.update({
-        where: { id: taskId },
-        data: { ...changes, status },
+      await ctx.task.updateMany({
+        where: { teamId: task.teamId, status: task.status, index: { gt: task.index } },
+        data: { index: { decrement: 1 } },
+      });
+      const updatedTasksOfTheLastStatus = await ctx.task.findMany({
+        where: { teamId: task.teamId, status: task.status, index: { gt: task.index } },
         include: { assignees: { select: { memberId: true } } },
       });
-
-      const mappedTask = {
-        ...updatedTask,
-        status: updatedTask.status as "active" | "ongoing" | "review" | "finished",
-        assignees: updatedTask.assignees.map((a) => a.memberId),
-      };
-
-      return mappedTask;
+      await ctx.task.updateMany({
+        where: { teamId: task.teamId, status, index: { gte: index } },
+        data: { index: { increment: 1 } },
+      });
+      const updatedTasksOfTheNewStatus = await ctx.task.findMany({
+        where: { teamId: task.teamId, status, index: { gte: index } },
+        include: { assignees: { select: { memberId: true } } },
+      });
+      const updatedTask = await ctx.task.update({
+        where: { id: taskId },
+        data: { ...changes, status, index },
+        include: { assignees: { select: { memberId: true } } },
+      });
+      return [updatedTask, ...updatedTasksOfTheLastStatus, ...updatedTasksOfTheNewStatus].map(
+        (t) => ({
+          ...t,
+          status: t.status as "active" | "ongoing" | "review" | "finished",
+          assignees: t.assignees.map((a) => a.memberId),
+        })
+      );
     });
   }
 }
