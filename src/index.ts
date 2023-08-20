@@ -128,7 +128,7 @@ app.get("/checkAuth", (req, res) => {
     }
     verify(token, SECRET, (error) => {
       if (error) {
-        return res.status(400).end();
+        return res.status(401).end();
       }
       return res.status(200).end();
     });
