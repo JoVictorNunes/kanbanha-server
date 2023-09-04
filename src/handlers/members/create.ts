@@ -1,7 +1,8 @@
 import Joi from "joi";
-import membersService from "../../services/members.service";
-import { BadRequestException, BaseException, InternalServerException } from "../../exceptions";
-import type { KanbanhaServer, KanbanhaSocket } from "../../io";
+import { ACKNOWLEDGEMENTS } from "@/enums";
+import { BadRequestException, BaseException, InternalServerException } from "@/exceptions";
+import { CLIENT_TO_SERVER_EVENTS, type KanbanhaServer, type KanbanhaSocket } from "@/io";
+import { membersService } from "@/services";
 
 const scheme = Joi.object({
   email: Joi.string().email().required(),
@@ -11,23 +12,21 @@ const scheme = Joi.object({
 }).required();
 
 export default function create(io: KanbanhaServer, socket: KanbanhaSocket) {
-  socket.on("members:create", async (data, callback) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.MEMBERS.CREATE, async (data, callback) => {
     try {
       await scheme.validateAsync(data);
       await membersService.create(data);
-      callback({ code: 201, message: "Created" });
+      callback(ACKNOWLEDGEMENTS.CREATED);
     } catch (e) {
       if (e instanceof BaseException) {
         callback(e);
         return;
       }
       if (e instanceof Joi.ValidationError) {
-        const exception = new BadRequestException(e.message);
-        callback(exception);
+        callback(new BadRequestException(e.message));
         return;
       }
-      const exception = new InternalServerException();
-      callback(exception);
+      callback(new InternalServerException());
     }
   });
 }

@@ -1,24 +1,36 @@
 import Joi from "joi";
-import projectService from "../../services/projects.service";
-import type { KanbanhaServer, KanbanhaSocket } from "../../io";
+import { ACKNOWLEDGEMENTS } from "@/enums";
+import { BadRequestException, BaseException, InternalServerException } from "@/exceptions";
+import {
+  CLIENT_TO_SERVER_EVENTS,
+  SERVER_TO_CLIENT_EVENTS,
+  type KanbanhaServer,
+  type KanbanhaSocket,
+} from "@/io";
+import { projectsService } from "@/services";
 
 const scheme = Joi.string().uuid().required();
 
 export default function del(io: KanbanhaServer, socket: KanbanhaSocket) {
-  socket.on("projects:delete", async (projectId, callback) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.PROJECTS.DELETE, async (projectId, callback) => {
     try {
       await scheme.validateAsync(projectId);
       const currentMember = socket.data.member!;
-      const membersInTheProject = await projectService.getMembersInProject(projectId);
+      const membersInTheProject = await projectsService.getMembersInProject(projectId);
       const membersToNotify = [...membersInTheProject, currentMember.id];
-      await projectService.delete(projectId);
-      io.to(membersToNotify).emit("projects:delete", projectId);
+      await projectsService.delete(projectId);
+      callback(ACKNOWLEDGEMENTS.DELETED);
+      io.to(membersToNotify).emit(SERVER_TO_CLIENT_EVENTS.PROJECTS.DELETE, projectId);
     } catch (e) {
-      if (e instanceof Joi.ValidationError) {
-        callback({ code: 400, message: e.message });
+      if (e instanceof BaseException) {
+        callback(e);
         return;
       }
-      callback({ code: 500, message: "Internal server error" });
+      if (e instanceof Joi.ValidationError) {
+        callback(new BadRequestException(e.message));
+        return;
+      }
+      callback(new InternalServerException());
     }
   });
 }

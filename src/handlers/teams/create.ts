@@ -1,7 +1,18 @@
 import Joi from "joi";
-import teamsService from "../../services/teams.service";
-import projectsService from "../../services/projects.service";
-import type { KanbanhaServer, KanbanhaSocket } from "../../io";
+import { ACKNOWLEDGEMENTS } from "@/enums";
+import {
+  BadRequestException,
+  BaseException,
+  InternalServerException,
+  UnauthorizedException,
+} from "@/exceptions";
+import {
+  CLIENT_TO_SERVER_EVENTS,
+  SERVER_TO_CLIENT_EVENTS,
+  type KanbanhaServer,
+  type KanbanhaSocket,
+} from "@/io";
+import { teamsService, projectsService } from "@/services";
 
 const scheme = Joi.object({
   projectId: Joi.string().uuid().required(),
@@ -10,17 +21,15 @@ const scheme = Joi.object({
 }).required();
 
 export default function create(io: KanbanhaServer, socket: KanbanhaSocket) {
-  socket.on("teams:create", async (data, callback) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.TEAMS.CREATE, async (data, callback) => {
     try {
       await scheme.validateAsync(data);
       const { projectId, members, name } = data;
       const currentMember = socket.data.member!;
       if (!projectsService.isOwnedByMember(projectId, currentMember.id)) {
-        callback({
-          code: 401,
-          message: "You do not have permission to create a team for this project.",
-        });
-        return;
+        throw new UnauthorizedException(
+          "You do not have permission to create a team for this project."
+        );
       }
       const membersInTheProject = await projectsService.getMembersInProject(projectId);
       const membersWhoDoNotKnowAboutTheProject = members.filter(
@@ -35,20 +44,27 @@ export default function create(io: KanbanhaServer, socket: KanbanhaSocket) {
       };
       const membersToNotify = [...members, currentMember.id];
 
-      io.to(membersToNotify).emit("teams:create", createdTeam);
+      io.to(membersToNotify).emit(SERVER_TO_CLIENT_EVENTS.TEAMS.CREATE, createdTeam);
 
       if (membersWhoDoNotKnowAboutTheProject.length > 0) {
-        io.to(membersWhoDoNotKnowAboutTheProject).emit("projects:create", {
+        io.to(membersWhoDoNotKnowAboutTheProject).emit(SERVER_TO_CLIENT_EVENTS.PROJECTS.CREATE, {
           id: projectId,
           name,
           ownerId: currentMember.id,
         });
       }
 
-      const response = { code: 201, message: "Created" };
-      callback(response);
+      callback(ACKNOWLEDGEMENTS.CREATED);
     } catch (e) {
-      callback({ code: 500, message: "Internal server error." });
+      if (e instanceof BaseException) {
+        callback(e);
+        return;
+      }
+      if (e instanceof Joi.ValidationError) {
+        callback(new BadRequestException(e.message));
+        return;
+      }
+      callback(new InternalServerException());
     }
   });
 }

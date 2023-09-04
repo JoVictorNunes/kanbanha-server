@@ -9,7 +9,7 @@ import registerProjectsHandlers from "./handlers/projects";
 import registerTasksHandlers from "./handlers/task";
 import registerTeamsHandlers from "./handlers/teams";
 import registerMembersHandlers from "./handlers/members";
-import prisma from "./services/prisma.service";
+import prisma from "./services/prisma";
 import signUpDTO from "./dto/signUp.dto";
 import {
   BadRequestException,
@@ -23,6 +23,8 @@ import signInDTO from "./dto/signIn.dto";
 import app from "./app";
 import httpServer from "./server";
 import io, { type SocketData } from "./io";
+import logger from "./services/logger";
+import membersService from "./services/members";
 
 const SECRET = process.env.SECRET || "";
 const PORT = Number(process.env.PORT) || 3000;
@@ -37,11 +39,7 @@ app.post("/signIn", async (req, res) => {
     const hash = createHash("sha256");
     hash.update(password);
     const hashedPassword = hash.digest("hex");
-    const member = await prisma.member.findUnique({
-      where: {
-        email,
-      },
-    });
+    const member = await membersService.findByEmail(email);
     if (!member) {
       throw new NotFoundException("Member does not exist.");
     }
@@ -79,21 +77,15 @@ app.post("/signUp", async (req, res) => {
   try {
     await signUpDTO.validateAsync(req.body);
     const { email, password, name, role } = req.body;
-    const hash = createHash("sha256");
-    hash.update(password);
-    const hashedPassword = hash.digest("hex");
 
-    const member = await prisma.member.create({
-      data: {
-        name,
-        role,
-        email,
-        password: hashedPassword,
-        online: false,
-      },
+    const member = await membersService.create({
+      name,
+      role,
+      email,
+      password,
     });
 
-    console.log("A new member was created:", member);
+    logger.debug("A member signed up:", member);
 
     res.status(201).json({
       id: member.id,
@@ -150,7 +142,7 @@ io.use((socket, next) => {
       const exception = new UnauthorizedException("Invalid authentication token.");
       return next(exception);
     }
-    socket.data.member = payload as SocketData["member"];
+    socket.data = { member: payload } as SocketData;
     next();
   });
 });
@@ -158,12 +150,32 @@ io.use((socket, next) => {
 io.on("connection", async (socket) => {
   const member = socket.data.member!;
 
-  console.log("A connection was established...");
-  console.log(`Member connected: name=${member.name} id=${member.id}`);
+  logger.debug("A connection was established.");
+  logger.debug(`Member connected: name=${member.name} id=${member.id}`);
 
   socket.use(([event], next) => {
-    console.log(`Member ${member.name} id=${member.id} sent a message: event=${event}`);
+    logger.debug(`Event ${event} received from member name=${member.name} id=${member.id}.`);
     next();
+  });
+
+  socket.use((_, next) => {
+    const token: string | undefined = socket.handshake.auth.token;
+    if (!token) {
+      const exception = new UnauthorizedException("You must provide an authentication token.");
+      return next(exception);
+    }
+    verify(token, SECRET, (error) => {
+      if (error) {
+        const exception = new UnauthorizedException("Invalid authentication token.");
+        return next(exception);
+      }
+      next();
+    });
+  });
+
+  socket.on("error", (error) => {
+    logger.debug(`Disconnecting member name=${member.name} id=${member.id}`, { reason: error });
+    socket.disconnect(true);
   });
 
   socket.join(member.id);
@@ -182,6 +194,7 @@ io.on("connection", async (socket) => {
       online: true,
     },
   });
+
   socket.on("disconnect", async () => {
     io.emit("members:member_disconnected", member.id);
     await prisma.member.update({

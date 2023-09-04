@@ -1,8 +1,8 @@
-import teamsService from "../../services/teams.service";
-import type { KanbanhaServer, KanbanhaSocket } from "../../io";
+import { CLIENT_TO_SERVER_EVENTS, type KanbanhaServer, type KanbanhaSocket } from "@/io";
+import { teamsService } from "@/services";
 
 export default function read(io: KanbanhaServer, socket: KanbanhaSocket) {
-  socket.on("teams:read", async (callback) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.TEAMS.READ, async (callback) => {
     try {
       const currentMember = socket.data.member!;
       const teams = await teamsService.readByMember(currentMember.id);

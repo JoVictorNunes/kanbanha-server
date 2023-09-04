@@ -1,7 +1,18 @@
 import Joi from "joi";
-import teamsService from "../../services/teams.service";
-import { BaseException, UnauthorizedException } from "../../exceptions";
-import type { KanbanhaServer, KanbanhaSocket } from "../../io";
+import { ACKNOWLEDGEMENTS } from "@/enums";
+import {
+  BadRequestException,
+  BaseException,
+  InternalServerException,
+  UnauthorizedException,
+} from "@/exceptions";
+import {
+  CLIENT_TO_SERVER_EVENTS,
+  SERVER_TO_CLIENT_EVENTS,
+  type KanbanhaServer,
+  type KanbanhaSocket,
+} from "@/io";
+import { teamsService } from "@/services";
 
 const scheme = Joi.object({
   teamId: Joi.string().uuid().required(),
@@ -9,7 +20,7 @@ const scheme = Joi.object({
 }).required();
 
 export default function update(io: KanbanhaServer, socket: KanbanhaSocket) {
-  socket.on("teams:update", async (data, callback) => {
+  socket.on(CLIENT_TO_SERVER_EVENTS.TEAMS.UPDATE, async (data, callback) => {
     try {
       await scheme.validateAsync(data);
       const { name, teamId } = data;
@@ -27,14 +38,18 @@ export default function update(io: KanbanhaServer, socket: KanbanhaSocket) {
         name: team.name,
         projectId: team.projectId,
       };
-      io.to(membersToNotify).emit("teams:update", msg);
-      callback({ code: 200, message: "Team updated" });
+      io.to(membersToNotify).emit(SERVER_TO_CLIENT_EVENTS.TEAMS.UPDATE, msg);
+      callback(ACKNOWLEDGEMENTS.UPDATED);
     } catch (e) {
       if (e instanceof BaseException) {
         callback(e);
         return;
       }
-      callback({ code: 500, message: "Internal server error" });
+      if (e instanceof Joi.ValidationError) {
+        callback(new BadRequestException(e.message));
+        return;
+      }
+      callback(new InternalServerException());
     }
   });
 }

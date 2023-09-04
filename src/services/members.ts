@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import prisma from "./prisma.service";
+import prisma from "./prisma";
 
 class MembersService {
   async create(data: { email: string; name: string; password: string; role: string }) {
@@ -21,12 +21,23 @@ class MembersService {
     });
   }
 
-  async read() {
+  async readAll() {
     return prisma.$transaction(async (ctx) => {
       const members = ctx.member.findMany({
         select: { password: false, email: true, id: true, name: true, online: true, role: true },
       });
       return members;
+    });
+  }
+
+  async findByEmail(email: string) {
+    return prisma.$transaction(async (ctx) => {
+      const member = await ctx.member.findUnique({
+        where: {
+          email,
+        },
+      });
+      return member;
     });
   }
 
@@ -76,4 +87,5 @@ class MembersService {
   }
 }
 
-export default new MembersService();
+export const membersService = new MembersService()
+export default membersService;

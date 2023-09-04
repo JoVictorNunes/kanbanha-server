@@ -1,4 +1,4 @@
-import prisma from "./prisma.service";
+import prisma from "./prisma";
 
 type Nullable<T> = {
   [Key in keyof T]: T[Key] | null;
@@ -301,4 +301,5 @@ class TasksService {
   }
 }
 
-export default new TasksService();
+export const tasksService = new TasksService();
+export default tasksService;

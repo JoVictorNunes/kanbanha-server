@@ -1,5 +1,4 @@
-import prisma from "./prisma.service";
-import teamsService from "./teams.service";
+import prisma from "./prisma";
 
 class ProjectsService {
   async create(data: { name: string; ownerId: string }) {
@@ -92,4 +91,5 @@ class ProjectsService {
   }
 }
 
-export default new ProjectsService();
+export const projectsService = new ProjectsService();
+export default projectsService;

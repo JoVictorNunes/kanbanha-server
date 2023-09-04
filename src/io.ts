@@ -116,8 +116,8 @@ interface ClientToServerEvents {
   "teams:read": (callback: ReadCallback<Array<Team>>) => void;
   "teams:update": (data: TeamsUpdateData, callback: ResponseCallback) => void;
   "teams:delete": (teamId: TeamsDeleteData, callback: ResponseCallback) => void;
-  "teams:addMember": (data: TeamsAddMemberData, callback: ResponseCallback) => void;
-  "teams:removeMember": (data: TeamsRemoveMemberData, callback: ResponseCallback) => void;
+  "teams:add_member": (data: TeamsAddMemberData, callback: ResponseCallback) => void;
+  "teams:remove_member": (data: TeamsRemoveMemberData, callback: ResponseCallback) => void;
 
   "tasks:create": (data: TasksCreateData, callback: ResponseCallback) => void;
   "tasks:read": (callback: ReadCallback<Array<Task>>) => void;
@@ -157,6 +157,61 @@ export type KanbanhaServer = Server<
   InterServerEvents,
   SocketData
 >;
+
+export const CLIENT_TO_SERVER_EVENTS = {
+  MEMBERS: {
+    CREATE: "members:create",
+    READ: "members:read",
+    UPDATE: "members:update",
+    DELETE: "members:delete",
+  },
+  TEAMS: {
+    CREATE: "teams:create",
+    READ: "teams:read",
+    UPDATE: "teams:update",
+    DELETE: "teams:delete",
+    ADD_MEMBER: "teams:add_member",
+    REMOVE_MEMBER: "teams:remove_member",
+  },
+  TASKS: {
+    CREATE: "tasks:create",
+    READ: "tasks:read",
+    UPDATE: "tasks:update",
+    DELETE: "tasks:delete",
+    MOVE: "tasks:move",
+  },
+  PROJECTS: {
+    CREATE: "projects:create",
+    READ: "projects:read",
+    UPDATE: "projects:update",
+    DELETE: "projects:delete",
+  },
+} as const;
+
+export const SERVER_TO_CLIENT_EVENTS = {
+  MEMBERS: {
+    CREATE: "members:create",
+    UPDATE: "members:update",
+    DELETE: "members:delete",
+    CONNECTED: "members:member_connected",
+    DISCONNECTED: "members:member_disconnected",
+  },
+  TEAMS: {
+    CREATE: "teams:create",
+    UPDATE: "teams:update",
+    DELETE: "teams:delete",
+  },
+  TASKS: {
+    CREATE: "tasks:create",
+    UPDATE: "tasks:update",
+    DELETE: "tasks:delete",
+  },
+  PROJECTS: {
+    CREATE: "projects:create",
+    UPDATE: "projects:update",
+    DELETE: "projects:delete",
+  },
+} as const;
 
 const io = new Server<ClientToServerEvents, ServerToClientsEvents, InterServerEvents, SocketData>(
   httpServer,
