@@ -9,6 +9,7 @@ import registerProjectsHandlers from "./handlers/projects";
 import registerTasksHandlers from "./handlers/task";
 import registerTeamsHandlers from "./handlers/teams";
 import registerMembersHandlers from "./handlers/members";
+import registerInvitesHandlers from "./handlers/invites";
 import prisma from "./services/prisma";
 import signUpDTO from "./dto/signUp.dto";
 import {
@@ -183,6 +184,7 @@ io.on("connection", async (socket) => {
   registerTeamsHandlers(io, socket);
   registerMembersHandlers(io, socket);
   registerTasksHandlers(io, socket);
+  registerInvitesHandlers(io, socket);
 
   io.emit("members:member_connected", member.id);
 

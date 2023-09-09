@@ -31,29 +31,16 @@ export default function create(io: KanbanhaServer, socket: KanbanhaSocket) {
           "You do not have permission to create a team for this project."
         );
       }
-      const membersInTheProject = await projectsService.getMembersInProject(projectId);
-      const membersWhoDoNotKnowAboutTheProject = members.filter(
-        (m) => !membersInTheProject.includes(m)
-      );
-      const team = await teamsService.create(projectId, name, members);
+      const deduplicatedMeberIds = Array.from(new Set([...members, currentMember.id]));
+      const team = await teamsService.create(projectId, name, deduplicatedMeberIds);
       const createdTeam = {
         id: team.id,
         name: team.name,
         projectId: team.projectId,
         members,
       };
-      const membersToNotify = [...members, currentMember.id];
 
-      io.to(membersToNotify).emit(SERVER_TO_CLIENT_EVENTS.TEAMS.CREATE, createdTeam);
-
-      if (membersWhoDoNotKnowAboutTheProject.length > 0) {
-        io.to(membersWhoDoNotKnowAboutTheProject).emit(SERVER_TO_CLIENT_EVENTS.PROJECTS.CREATE, {
-          id: projectId,
-          name,
-          ownerId: currentMember.id,
-        });
-      }
-
+      io.to(deduplicatedMeberIds).emit(SERVER_TO_CLIENT_EVENTS.TEAMS.CREATE, createdTeam);
       callback(ACKNOWLEDGEMENTS.CREATED);
     } catch (e) {
       if (e instanceof BaseException) {

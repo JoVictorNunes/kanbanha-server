@@ -31,7 +31,7 @@ export default function update(io: KanbanhaServer, socket: KanbanhaSocket) {
       }
       const team = await teamsService.update(teamId, name);
       const membersInTheTeam = team.members.map((member) => member.memberId);
-      const membersToNotify = [...membersInTheTeam, team.project.ownerId];
+      const membersToNotify = [...membersInTheTeam];
       const msg = {
         id: team.id,
         members: membersInTheTeam,

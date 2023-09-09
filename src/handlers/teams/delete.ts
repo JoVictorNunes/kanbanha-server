@@ -12,7 +12,7 @@ export default function del(io: KanbanhaServer, socket: KanbanhaSocket) {
       await scheme.validateAsync(teamId);
       const membersInTheTeam = await teamsService.getMembersInTeam(teamId);
       const deletedTeam = await teamsService.delete(teamId);
-      const membersToNotify = [...membersInTheTeam, deletedTeam.project.ownerId];
+      const membersToNotify = [...membersInTheTeam];
       io.to(membersToNotify).emit(SERVER_TO_CLIENT_EVENTS.TEAMS.DELETE, teamId);
       callback(ACKNOWLEDGEMENTS.DELETED);
     } catch (e) {

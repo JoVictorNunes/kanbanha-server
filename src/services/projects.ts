@@ -1,92 +1,104 @@
+import { UUID } from "@/io";
 import prisma from "./prisma";
 
 class ProjectsService {
-  async create(data: { name: string; ownerId: string }) {
+  async create(data: { name: string; ownerId: UUID }) {
     return prisma.$transaction(async (ctx) => {
       const { name, ownerId } = data;
       const project = ctx.project.create({
         data: {
           name,
-          owner: {
-            connect: {
-              id: ownerId,
-            },
-          },
+          members: { create: [{ owner: true, member: { connect: { id: ownerId } } }] },
         },
       });
       return project;
     });
   }
 
-  async readByMember(memberId: string) {
+  async readByMember(memberId: UUID) {
     return prisma.$transaction(async (ctx) => {
       const projects = ctx.project.findMany({
         where: {
           OR: [
-            {
-              ownerId: memberId,
-            },
-            {
-              teams: {
-                some: {
-                  members: {
-                    some: {
-                      member: {
-                        id: memberId,
-                      },
-                    },
-                  },
-                },
-              },
-            },
+            { members: { some: { member: { id: memberId } } } },
+            { invites: { some: { member: { id: memberId } } } },
           ],
         },
+        include: { members: true },
       });
       return projects;
     });
   }
 
-  async getMembersInProject(projectId: string) {
+  async getMembersInProject(projectId: UUID) {
     return prisma.$transaction(async (ctx) => {
-      const membersInTheProject = await ctx.membersOnTeam.findMany({
-        where: { team: { projectId } },
+      const membersInTheProject = await ctx.membersOnProject.findMany({
+        where: { projectId },
         select: { memberId: true },
       });
       const memberIds = membersInTheProject.map((member) => member.memberId);
-      const deduplicatedMeberIds = Array.from(new Set<string>(memberIds));
-      return deduplicatedMeberIds;
+      return memberIds;
     });
   }
 
   async update(projectId: string, name: string) {
     return prisma.$transaction(async (ctx) => {
-      const updatedProject = ctx.project.update({
+      const project = ctx.project.update({
         where: { id: projectId },
         data: { name },
+        include: { members: true },
       });
-      return updatedProject;
+      return project;
     });
   }
 
   async delete(projectId: string) {
     return prisma.$transaction(async (ctx) => {
-      const assignees = await ctx.assigneesOnTask.deleteMany({
-        where: { task: { team: { projectId } } },
+      const assigneesOnTaskFilter = { task: { team: { project: { id: projectId } } } };
+      const deletedAssigneesOnTasks = await ctx.assigneesOnTask.findMany({
+        where: assigneesOnTaskFilter,
       });
-      const tasks = await ctx.task.deleteMany({ where: { team: { projectId } } });
-      const membersOnTeam = await ctx.membersOnTeam.deleteMany({ where: { team: { projectId } } });
-      const teams = await ctx.team.deleteMany({ where: { projectId } });
-      const deletedProject = ctx.project.delete({ where: { id: projectId } });
-      return deletedProject;
+      await ctx.assigneesOnTask.deleteMany({ where: assigneesOnTaskFilter });
+
+      const taskFilter = { team: { project: { id: projectId } } };
+      const deletedTasks = await ctx.task.findMany({ where: taskFilter });
+      await ctx.task.deleteMany({ where: taskFilter });
+
+      const membersOnTeamFilter = { team: { project: { id: projectId } } };
+      const deletedMembersOnTeam = await ctx.membersOnTeam.findMany({
+        where: membersOnTeamFilter,
+      });
+      await ctx.membersOnTeam.deleteMany({ where: membersOnTeamFilter });
+
+      const teamFilter = { project: { id: projectId } };
+      const deletedTeams = await ctx.team.findMany({ where: teamFilter });
+      await ctx.team.deleteMany({ where: teamFilter });
+
+      const membersOnProjectFilter = { project: { id: projectId } };
+      const deletedMembersOnProject = await ctx.membersOnProject.findMany({
+        where: membersOnProjectFilter,
+      });
+      await ctx.membersOnProject.deleteMany({ where: membersOnProjectFilter });
+
+      const deletedProject = await ctx.project.delete({ where: { id: projectId } });
+
+      return {
+        deletedProject,
+        deletedAssigneesOnTasks,
+        deletedTasks,
+        deletedMembersOnTeam,
+        deletedTeams,
+        deletedMembersOnProject,
+      };
     });
   }
 
-  async isOwnedByMember(projectId: string, memberId: string) {
+  async isOwnedByMember(projectId: UUID, memberId: UUID) {
     return prisma.$transaction(async (ctx) => {
-      const project = await ctx.project.findUniqueOrThrow({
-        where: { id: projectId },
+      const memberOnProject = await ctx.membersOnProject.findFirstOrThrow({
+        where: { projectId, owner: true },
       });
-      return project.ownerId === memberId;
+      return memberOnProject.memberId === memberId;
     });
   }
 }

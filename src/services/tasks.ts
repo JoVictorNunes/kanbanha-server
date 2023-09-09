@@ -80,22 +80,13 @@ class TasksService {
       const tasks = await ctx.task.findMany({
         where: {
           team: {
-            OR: [
-              {
-                members: {
-                  some: {
-                    member: {
-                      id: memberId,
-                    },
-                  },
+            members: {
+              some: {
+                member: {
+                  id: memberId,
                 },
               },
-              {
-                project: {
-                  ownerId: memberId,
-                },
-              },
-            ],
+            },
           },
         },
         include: {

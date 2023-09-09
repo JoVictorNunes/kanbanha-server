@@ -5,15 +5,24 @@ CREATE TABLE "Member" (
     "name" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "role" TEXT NOT NULL,
-    "online" BOOLEAN NOT NULL
+    "online" BOOLEAN NOT NULL DEFAULT false
 );
 
 -- CreateTable
 CREATE TABLE "Project" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "name" TEXT NOT NULL,
-    "ownerId" TEXT NOT NULL,
-    CONSTRAINT "Project_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    "name" TEXT NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "MembersOnProject" (
+    "memberId" TEXT NOT NULL,
+    "projectId" TEXT NOT NULL,
+    "owner" BOOLEAN NOT NULL,
+
+    PRIMARY KEY ("memberId", "projectId"),
+    CONSTRAINT "MembersOnProject_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "MembersOnProject_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -56,7 +65,19 @@ CREATE TABLE "Task" (
     "dueDate" DATETIME NOT NULL,
     "status" TEXT NOT NULL,
     "teamId" TEXT NOT NULL,
+    "index" INTEGER NOT NULL,
     CONSTRAINT "Task_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "Invite" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "projectId" TEXT NOT NULL,
+    "memberId" TEXT NOT NULL,
+    "accepted" BOOLEAN NOT NULL DEFAULT false,
+    "when" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Invite_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Invite_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateIndex

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import prisma from "./prisma";
+import { UUID } from "@/io";
 
 class MembersService {
   async create(data: { email: string; name: string; password: string; role: string }) {
@@ -66,26 +67,20 @@ class MembersService {
 
   async getMembersKnownBy(memberId: string) {
     return prisma.$transaction(async (ctx) => {
-      const memberTeams = await ctx.membersOnTeam.findMany({
+      const memberProjects = await ctx.membersOnProject.findMany({
         where: { memberId },
-        select: { teamId: true },
+        select: { projectId: true },
       });
-      const teamIds = memberTeams.map((t) => t.teamId);
-      const teams = await ctx.team.findMany({
-        where: { id: { in: teamIds } },
-        include: { project: true },
-      });
-      const members = await ctx.membersOnTeam.findMany({
-        where: { teamId: { in: teamIds } },
-        select: { memberId: true },
+      const projectIds = memberProjects.map((t) => t.projectId);
+      const members = await ctx.membersOnProject.findMany({
+        where: { projectId: { in: projectIds } },
       });
       const memberIds = members.map((m) => m.memberId);
-      const ownerIds = teams.map((t) => t.project.ownerId);
-      const deduplicatedMemberIds = Array.from(new Set([...memberIds, ...ownerIds]));
+      const deduplicatedMemberIds = Array.from(new Set(memberIds));
       return deduplicatedMemberIds;
     });
   }
 }
 
-export const membersService = new MembersService()
+export const membersService = new MembersService();
 export default membersService;

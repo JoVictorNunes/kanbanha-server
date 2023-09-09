@@ -1,6 +1,11 @@
 import Joi from "joi";
 import { ACKNOWLEDGEMENTS } from "@/enums";
-import { BadRequestException, BaseException, InternalServerException } from "@/exceptions";
+import {
+  BadRequestException,
+  BaseException,
+  InternalServerException,
+  UnauthorizedException,
+} from "@/exceptions";
 import {
   CLIENT_TO_SERVER_EVENTS,
   SERVER_TO_CLIENT_EVENTS,
@@ -16,11 +21,19 @@ export default function del(io: KanbanhaServer, socket: KanbanhaSocket) {
     try {
       await scheme.validateAsync(projectId);
       const currentMember = socket.data.member!;
+      if (!projectsService.isOwnedByMember(projectId, currentMember.id)) {
+        throw new UnauthorizedException("You do not have permission for deleting this project.");
+      }
       const membersInTheProject = await projectsService.getMembersInProject(projectId);
-      const membersToNotify = [...membersInTheProject, currentMember.id];
-      await projectsService.delete(projectId);
+      const { deletedTasks, deletedTeams } = await projectsService.delete(projectId);
+      deletedTasks.forEach((task) => {
+        io.to(membersInTheProject).emit(SERVER_TO_CLIENT_EVENTS.TASKS.DELETE, task.id);
+      });
+      deletedTeams.forEach((team) => {
+        io.to(membersInTheProject).emit(SERVER_TO_CLIENT_EVENTS.TEAMS.DELETE, team.id);
+      });
+      io.to(membersInTheProject).emit(SERVER_TO_CLIENT_EVENTS.PROJECTS.DELETE, projectId);
       callback(ACKNOWLEDGEMENTS.DELETED);
-      io.to(membersToNotify).emit(SERVER_TO_CLIENT_EVENTS.PROJECTS.DELETE, projectId);
     } catch (e) {
       if (e instanceof BaseException) {
         callback(e);

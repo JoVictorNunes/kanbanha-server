@@ -1,8 +1,13 @@
 import prisma from "./prisma";
+import projectsService from "./projects";
 
 class TeamsService {
   async create(projectId: string, name: string, memberIds: string[]) {
     return prisma.$transaction(async (ctx) => {
+      const membersInTheProject = await projectsService.getMembersInProject(projectId);
+      const filteredMemberIds = memberIds.filter((memberId) =>
+        membersInTheProject.includes(memberId)
+      );
       const team = ctx.team.create({
         data: {
           name,
@@ -13,7 +18,7 @@ class TeamsService {
           },
           members: {
             create: [
-              ...memberIds.map((memberId) => ({
+              ...filteredMemberIds.map((memberId) => ({
                 member: { connect: { id: memberId } },
               })),
             ],
@@ -28,10 +33,7 @@ class TeamsService {
     return prisma.$transaction(async (ctx) => {
       const teams = ctx.team.findMany({
         where: {
-          OR: [
-            { project: { ownerId: memberId } },
-            { members: { some: { member: { id: memberId } } } },
-          ],
+          members: { some: { member: { id: memberId } } },
         },
         include: { members: { select: { memberId: true } } },
       });
@@ -77,9 +79,11 @@ class TeamsService {
     return prisma.$transaction(async (ctx) => {
       const team = await ctx.team.findUniqueOrThrow({
         where: { id: teamId },
-        include: { project: true },
       });
-      return team.project.ownerId;
+      const owner = await ctx.membersOnProject.findFirstOrThrow({
+        where: { owner: true, projectId: team.projectId },
+      });
+      return owner.memberId;
     });
   }
 
@@ -87,10 +91,12 @@ class TeamsService {
     return prisma.$transaction(async (ctx) => {
       const team = await ctx.team.findUniqueOrThrow({
         where: { id: teamId },
-        include: { project: true },
+      });
+      const owner = await ctx.membersOnProject.findFirstOrThrow({
+        where: { owner: true, projectId: team.projectId },
       });
 
-      return team.project.ownerId === memberId;
+      return owner.memberId === memberId;
     });
   }
 }

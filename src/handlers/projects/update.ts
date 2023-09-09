@@ -1,6 +1,11 @@
 import Joi from "joi";
 import { ACKNOWLEDGEMENTS } from "@/enums";
-import { BadRequestException, BaseException, InternalServerException } from "@/exceptions";
+import {
+  BadRequestException,
+  BaseException,
+  InternalServerException,
+  UnauthorizedException,
+} from "@/exceptions";
 import {
   CLIENT_TO_SERVER_EVENTS,
   SERVER_TO_CLIENT_EVENTS,
@@ -20,11 +25,19 @@ export default function update(io: KanbanhaServer, socket: KanbanhaSocket) {
       await scheme.validateAsync(data);
       const { id, name } = data;
       const currentMember = socket.data.member!;
+      if (!projectsService.isOwnedByMember(id, currentMember.id)) {
+        throw new UnauthorizedException("You do not have permission for updating this project.");
+      }
       const updatedProject = await projectsService.update(id, name);
+      const owner = updatedProject.members.find((m) => m.owner)!;
+      const projectMapped = {
+        ...updatedProject,
+        ownerId: owner.memberId,
+        members: updatedProject.members.map((m) => m.memberId),
+      };
       const membersInTheProject = await projectsService.getMembersInProject(id);
-      const membersToNotify = [...membersInTheProject, currentMember.id];
+      io.to(membersInTheProject).emit(SERVER_TO_CLIENT_EVENTS.PROJECTS.UPDATE, projectMapped);
       callback(ACKNOWLEDGEMENTS.UPDATED);
-      io.to(membersToNotify).emit(SERVER_TO_CLIENT_EVENTS.PROJECTS.UPDATE, updatedProject);
     } catch (e) {
       if (e instanceof BaseException) {
         callback(e);
