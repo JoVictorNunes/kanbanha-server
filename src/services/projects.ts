@@ -18,12 +18,7 @@ class ProjectsService {
   async readByMember(memberId: UUID) {
     return prisma.$transaction(async (ctx) => {
       const projects = ctx.project.findMany({
-        where: {
-          OR: [
-            { members: { some: { member: { id: memberId } } } },
-            { invites: { some: { member: { id: memberId } } } },
-          ],
-        },
+        where: { members: { some: { member: { id: memberId } } } },
         include: { members: true },
       });
       return projects;

@@ -19,7 +19,10 @@ export default function create(io: KanbanhaServer, socket: KanbanhaSocket) {
     try {
       await scheme.validateAsync(data);
       const { invited, projectId } = data;
-      for (const email of invited) {
+      const currentMember = socket.data.member!;
+      const deduplicatedInvited = new Set(invited);
+      deduplicatedInvited.delete(currentMember.email);
+      for (const email of deduplicatedInvited) {
         try {
           const invite = await invitesService.create(projectId, email);
           io.to(invite.memberId).emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, invite);

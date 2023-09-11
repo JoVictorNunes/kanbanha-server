@@ -46,6 +46,7 @@ type Invite = {
   id: UUID;
   projectId: UUID;
   memberId: UUID;
+  text: string;
   when: Date;
   accepted: boolean;
 };
@@ -122,6 +123,7 @@ interface ServerToClientsEvents {
   "members:member_disconnected": (memberId: UUID) => void;
 
   "invites:create": (invite: Invite) => void;
+  "invites:update": (invite: Invite) => void;
 }
 
 interface ClientToServerEvents {
@@ -240,6 +242,7 @@ export const SERVER_TO_CLIENT_EVENTS = {
   },
   INVITES: {
     CREATE: "invites:create",
+    UPDATE: "invites:update",
   },
 } as const;
 

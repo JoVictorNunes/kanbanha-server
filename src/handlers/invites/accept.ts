@@ -16,10 +16,14 @@ export default function accept(io: KanbanhaServer, socket: KanbanhaSocket) {
     try {
       await scheme.validateAsync(inviteId);
       const currentMember = socket.data.member!;
-      const updatedProject = await invitesService.accept(inviteId, currentMember.id);
+      const { updatedProject, updatedInvite } = await invitesService.accept(
+        inviteId,
+        currentMember.id
+      );
       const membersInTheProject = await projectsService.getMembersInProject(updatedProject.id);
-      callback(ACKNOWLEDGEMENTS.CREATED);
       io.to(membersInTheProject).emit(SERVER_TO_CLIENT_EVENTS.PROJECTS.UPDATE, updatedProject);
+      io.to(updatedInvite.memberId).emit(SERVER_TO_CLIENT_EVENTS.INVITES.UPDATE, updatedInvite);
+      callback(ACKNOWLEDGEMENTS.CREATED);
     } catch (e) {
       if (e instanceof BaseException) {
         callback(e);

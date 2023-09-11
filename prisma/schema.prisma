@@ -93,6 +93,7 @@ model Invite {
   member    Member  @relation(fields: [memberId], references: [id])
   memberId  String
 
+  text     String
   accepted Boolean  @default(false)
   when     DateTime @default(now())
 }

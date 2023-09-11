@@ -74,6 +74,7 @@ CREATE TABLE "Invite" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "projectId" TEXT NOT NULL,
     "memberId" TEXT NOT NULL,
+    "text" TEXT NOT NULL,
     "accepted" BOOLEAN NOT NULL DEFAULT false,
     "when" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Invite_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,

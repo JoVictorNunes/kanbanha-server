@@ -3,17 +3,16 @@ import prisma from "./prisma";
 import { UnauthorizedException } from "@/exceptions";
 
 class InvitesService {
-  async create(projectId: string, email: string, notify = false) {
+  async create(projectId: string, email: string) {
     return prisma.$transaction(async (ctx) => {
+      const project = await ctx.project.findUniqueOrThrow({ where: { id: projectId } });
       const invite = ctx.invite.create({
         data: {
           member: { connect: { email } },
           project: { connect: { id: projectId } },
+          text: `You have been invited to participate in the ${project.name} project.`,
         },
       });
-      if (notify) {
-        // Send email...
-      }
       return invite;
     });
   }
@@ -24,10 +23,10 @@ class InvitesService {
     });
   }
 
-  async accept(inviteId: UUID, memberId: UUID) {
+  async accept(inviteId: UUID, currentMemberId: UUID) {
     return prisma.$transaction(async (ctx) => {
       const invite = await ctx.invite.findUniqueOrThrow({ where: { id: inviteId } });
-      if (invite.memberId !== memberId) {
+      if (invite.memberId !== currentMemberId) {
         throw new UnauthorizedException();
       }
       const memberOnProject = await ctx.membersOnProject.create({
@@ -44,9 +43,12 @@ class InvitesService {
       });
       const owner = memberOnProject.project.members.find((m) => m.owner)!;
       return {
-        ...memberOnProject.project,
-        ownerId: owner.memberId,
-        members: memberOnProject.project.members.map((m) => m.memberId),
+        updatedProject: {
+          ...memberOnProject.project,
+          ownerId: owner.memberId,
+          members: memberOnProject.project.members.map((m) => m.memberId),
+        },
+        updatedInvite,
       };
     });
   }
