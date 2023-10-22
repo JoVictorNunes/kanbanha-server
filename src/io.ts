@@ -51,8 +51,8 @@ type Invite = {
   accepted: boolean;
 };
 
-type ResponseCallback = (response: { code: number; message: string }) => void;
-type ReadCallback<T> = (data: T) => void;
+export type ResponseCallback = (response: { code: number; message: string }) => void;
+export type ReadCallback<T> = (data: T) => void;
 
 type ProjectsCreateData = { name: string; invited?: Array<string> };
 type ProjectsUpdateData = { id: UUID; name: string };
@@ -97,6 +97,7 @@ type MemberUpdateData = {
   name: string;
   role: string;
 };
+type MemberDeleteData = {}
 
 type InviteCreateData = {
   projectId: UUID;
@@ -148,7 +149,7 @@ interface ClientToServerEvents {
   "members:create": (data: MemberCreateData, callback: ResponseCallback) => void;
   "members:read": (callback: ReadCallback<Array<Member>>) => void;
   "members:update": (data: MemberUpdateData, callback: ResponseCallback) => void;
-  "members:delete": (callback: ResponseCallback) => void;
+  "members:delete": (data: MemberDeleteData, callback: ResponseCallback) => void;
 
   "invites:create": (data: InviteCreateData, callback: ResponseCallback) => void;
   "invites:read": (callback: ReadCallback<Array<Invite>>) => void;

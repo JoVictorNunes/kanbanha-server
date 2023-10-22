@@ -1,6 +1,5 @@
 import Joi from "joi";
-import { ACKNOWLEDGEMENTS } from "@/enums";
-import { BadRequestException, BaseException, InternalServerException } from "@/exceptions";
+import { ACKNOWLEDGEMENTS } from "@/constants";
 import {
   CLIENT_TO_SERVER_EVENTS,
   SERVER_TO_CLIENT_EVENTS,
@@ -8,6 +7,7 @@ import {
   type KanbanhaSocket,
 } from "@/io";
 import { tasksService, teamsService } from "@/services";
+import withErrrorHandler from "@/handlers/withErrorHandler";
 
 const scheme = Joi.object({
   assignees: Joi.array().items(Joi.string().uuid().required(), Joi.string().uuid()).required(),
@@ -18,8 +18,9 @@ const scheme = Joi.object({
 }).required();
 
 export default function update(io: KanbanhaServer, socket: KanbanhaSocket) {
-  socket.on(CLIENT_TO_SERVER_EVENTS.TASKS.UPDATE, async (data, callback) => {
-    try {
+  socket.on(
+    CLIENT_TO_SERVER_EVENTS.TASKS.UPDATE,
+    withErrrorHandler(async (data, callback) => {
       await scheme.validateAsync(data);
       const task = await tasksService.update(data.id, data);
       const membersInTheTeam = await teamsService.getMembersInTeam(task.teamId);
@@ -27,16 +28,6 @@ export default function update(io: KanbanhaServer, socket: KanbanhaSocket) {
       const membersToNotify = [...membersInTheTeam, teamOwner];
       io.to(membersToNotify).emit(SERVER_TO_CLIENT_EVENTS.TASKS.UPDATE, task);
       callback(ACKNOWLEDGEMENTS.DELETED);
-    } catch (e) {
-      if (e instanceof BaseException) {
-        callback(e);
-        return;
-      }
-      if (e instanceof Joi.ValidationError) {
-        callback(new BadRequestException(e.message));
-        return;
-      }
-      callback(new InternalServerException());
-    }
-  });
+    })
+  );
 }

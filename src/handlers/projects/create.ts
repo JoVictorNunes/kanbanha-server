@@ -1,6 +1,5 @@
 import Joi from "joi";
-import { ACKNOWLEDGEMENTS } from "@/enums";
-import { BadRequestException, BaseException, InternalServerException } from "@/exceptions";
+import { ACKNOWLEDGEMENTS } from "@/constants";
 import {
   CLIENT_TO_SERVER_EVENTS,
   SERVER_TO_CLIENT_EVENTS,
@@ -8,6 +7,7 @@ import {
   type KanbanhaSocket,
 } from "@/io";
 import { invitesService, logger, projectsService } from "@/services";
+import withErrrorHandler from "@/handlers/withErrorHandler";
 
 const scheme = Joi.object({
   name: Joi.string().min(3).max(12).required(),
@@ -15,8 +15,9 @@ const scheme = Joi.object({
 }).required();
 
 export default function create(io: KanbanhaServer, socket: KanbanhaSocket) {
-  socket.on(CLIENT_TO_SERVER_EVENTS.PROJECTS.CREATE, async (data, callback) => {
-    try {
+  socket.on(
+    CLIENT_TO_SERVER_EVENTS.PROJECTS.CREATE,
+    withErrrorHandler(async (data, callback) => {
       await scheme.validateAsync(data);
       const { name, invited } = data;
       const currentMember = socket.data.member!;
@@ -39,16 +40,6 @@ export default function create(io: KanbanhaServer, socket: KanbanhaSocket) {
           }
         }
       }
-    } catch (e) {
-      if (e instanceof BaseException) {
-        callback(e);
-        return;
-      }
-      if (e instanceof Joi.ValidationError) {
-        callback(new BadRequestException(e.message));
-        return;
-      }
-      callback(new InternalServerException());
-    }
-  });
+    })
+  );
 }
