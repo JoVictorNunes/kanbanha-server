@@ -30,6 +30,11 @@ import membersService from "./services/members";
 const SECRET = process.env.SECRET || "";
 const PORT = Number(process.env.PORT) || 3000;
 
+process.on("uncaughtException", (error) => {
+  console.log("uncaughtException", error);
+  process.exit(1);
+});
+
 app.use(cors());
 app.use(express.json());
 
