@@ -1,4 +1,7 @@
-export const PRISMA_ERROR_CODES = {} as const;
+export const PRISMA_ERROR_CODES = {
+  UNIQUE_CONSTRAINT: "P2002",
+  RECORD_NOT_FOUND: "P2025",
+} as const;
 
 export const ACKNOWLEDGEMENTS = {
   CREATED: { code: 200, message: "Created" },

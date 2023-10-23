@@ -1,5 +1,13 @@
+import { Prisma } from "@prisma/client";
 import Joi from "joi";
-import { BadRequestException, BaseException, InternalServerException } from "@/exceptions";
+import {
+  BadRequestException,
+  BaseException,
+  ConflictException,
+  InternalServerException,
+  NotFoundException,
+} from "@/exceptions";
+import { PRISMA_ERROR_CODES } from "@/constants";
 import type { ResponseCallback } from "@/io";
 
 const withErrrorHandler = <D extends object | string, C extends ResponseCallback>(
@@ -16,6 +24,15 @@ const withErrrorHandler = <D extends object | string, C extends ResponseCallback
       if (e instanceof Joi.ValidationError) {
         callback(new BadRequestException(e.message));
         return;
+      }
+      if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        if (e.code === PRISMA_ERROR_CODES.UNIQUE_CONSTRAINT) {
+          callback(new ConflictException());
+          return;
+        }
+        if (e.code === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
+          callback(new NotFoundException());
+        }
       }
       callback(new InternalServerException());
     }
