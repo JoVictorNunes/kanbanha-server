@@ -27,14 +27,14 @@ export type Task = {
   index: number;
 };
 
-type Team = {
+export type Team = {
   id: UUID;
   name: string;
   projectId: UUID;
   members: Array<string>;
 };
 
-type Member = {
+export type Member = {
   id: UUID;
   email: string;
   name: string;
@@ -42,7 +42,7 @@ type Member = {
   online: boolean;
 };
 
-type Invite = {
+export type Invite = {
   id: UUID;
   projectId: UUID;
   memberId: UUID;
@@ -54,17 +54,17 @@ type Invite = {
 export type ResponseCallback = (response: { code: number; message: string }) => void;
 export type ReadCallback<T> = (data: T) => void;
 
-type ProjectsCreateData = { name: string; invited?: Array<string> };
-type ProjectsUpdateData = { id: UUID; name: string };
-type ProjectsDeleteData = UUID;
+export type ProjectsCreateData = { name: string; invited?: Array<string> };
+export type ProjectsUpdateData = { id: UUID; name: string };
+export type ProjectsDeleteData = UUID;
 
-type TeamsCreateData = { projectId: UUID; name: string; members: Array<UUID> };
-type TeamsUpdateData = { teamId: UUID; name: string };
-type TeamsDeleteData = UUID;
-type TeamsAddMemberData = { teamId: UUID; memberId: UUID };
-type TeamsRemoveMemberData = TeamsAddMemberData;
+export type TeamsCreateData = { projectId: UUID; name: string; members: Array<UUID> };
+export type TeamsUpdateData = { teamId: UUID; name: string };
+export type TeamsDeleteData = UUID;
+export type TeamsAddMemberData = { teamId: UUID; memberId: UUID };
+export type TeamsRemoveMemberData = TeamsAddMemberData;
 
-type TasksCreateData = {
+export type TasksCreateData = {
   date: number;
   description: string;
   dueDate: number;
@@ -72,34 +72,34 @@ type TasksCreateData = {
   teamId: UUID;
   status: Task["status"];
 };
-type TasksUpdateData = {
+export type TasksUpdateData = {
   id: UUID;
   date: number;
   description: string;
   dueDate: number;
   assignees: UUID[];
 };
-type TasksDeleteData = UUID;
-type TasksMoveData = {
+export type TasksDeleteData = UUID;
+export type TasksMoveData = {
   taskId: UUID;
   status: Task["status"];
   index: number;
 };
 
-type MemberCreateData = {
+export type MemberCreateData = {
   email: string;
   password: string;
   name: string;
   role: string;
 };
-type MemberUpdateData = {
+export type MemberUpdateData = {
   email: string;
   name: string;
   role: string;
 };
-type MemberDeleteData = {}
+export type MemberDeleteData = {};
 
-type InviteCreateData = {
+export type InviteCreateData = {
   projectId: UUID;
   invited: Array<string>;
 };
@@ -185,7 +185,7 @@ export type KanbanhaServer = Server<
 
 export const CLIENT_TO_SERVER_EVENTS = {
   MEMBERS: {
-    CREATE: "members:create",
+    // CREATE: "members:create",
     READ: "members:read",
     UPDATE: "members:update",
     DELETE: "members:delete",
