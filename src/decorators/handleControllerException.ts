@@ -1,6 +1,14 @@
 import { Request, Response } from "express";
 import { ValidationError } from "joi";
-import { BadRequestException, BaseException, InternalServerException } from "@/exceptions";
+import {
+  BadRequestException,
+  BaseException,
+  ConflictException,
+  InternalServerException,
+  NotFoundException,
+} from "@/exceptions";
+import { Prisma } from "@prisma/client";
+import { PRISMA_ERROR_CODES } from "@/constants";
 
 type Controller = (request: Request, response: Response) => Promise<void>;
 
@@ -20,6 +28,18 @@ export default function handleControllerException(
         const exception = new BadRequestException(e.message);
         response.status(exception.code).json(exception);
         return;
+      }
+      if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        if (e.code === PRISMA_ERROR_CODES.UNIQUE_CONSTRAINT) {
+          const exception = new ConflictException(e.message);
+          response.status(exception.code).json(exception);
+          return;
+        }
+        if (e.code === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
+          const exception = new NotFoundException(e.message);
+          response.status(exception.code).json(exception);
+          return;
+        }
       }
       const exception = new InternalServerException();
       response.status(exception.code).json(exception);

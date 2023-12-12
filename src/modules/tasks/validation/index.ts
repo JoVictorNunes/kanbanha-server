@@ -1,7 +1,10 @@
 import Joi from "joi";
 
 export const CreateTaskSchema = Joi.object({
-  assignees: Joi.array().items(Joi.string().uuid().required(), Joi.string().uuid()).required(),
+  assignees: Joi.array()
+    .items(Joi.string().uuid().required(), Joi.string().uuid())
+    .unique()
+    .required(),
   date: Joi.number().integer().required(),
   description: Joi.string().min(3).max(200).required(),
   dueDate: Joi.number().integer().required(),
@@ -12,7 +15,10 @@ export const CreateTaskSchema = Joi.object({
 export const DeleteTaskSchema = Joi.string().uuid().required();
 
 export const UpdateTaskSchema = Joi.object({
-  assignees: Joi.array().items(Joi.string().uuid().required(), Joi.string().uuid()).required(),
+  assignees: Joi.array()
+    .items(Joi.string().uuid().required(), Joi.string().uuid())
+    .unique()
+    .required(),
   date: Joi.number().integer().required(),
   description: Joi.string().min(3).max(200).required(),
   dueDate: Joi.number().integer().required(),

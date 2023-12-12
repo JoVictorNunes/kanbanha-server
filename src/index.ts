@@ -6,14 +6,14 @@ import { UnauthorizedException } from "@/exceptions";
 import app from "@/app";
 import httpServer from "@/server";
 import io from "@/io";
-import prisma from "@/modules/database/services/prisma";
-import logger from "@/modules/common/logger";
-import memberController from "@/modules/members/controllers/MemberController";
-import ProjectHandler from "@/modules/projects/handlers/ProjectHandler";
-import TeamHandler from "@/modules/teams/handlers/TeamHandler";
-import TaskHandler from "@/modules/tasks/handlers/TaskHandler";
-import MemberHandler from "@/modules/members/handlers/MemberHandler";
-import InviteHandler from "@/modules/invites/handlers/InviteHandler";
+import prisma from "@/services/prisma";
+import logger from "@/services/logger";
+import MemberController from "@/modules/members/MemberController";
+import ProjectHandler from "@/modules/projects/ProjectHandler";
+import TeamHandler from "@/modules/teams/TeamHandler";
+import TaskHandler from "@/modules/tasks/TaskHandler";
+import MemberHandler from "@/modules/members/MemberHandler";
+import InviteHandler from "@/modules/invites/InviteHandler";
 import auth from "@/middlewares/auth";
 
 const SECRET = process.env.SECRET || "";
@@ -23,6 +23,8 @@ process.on("uncaughtException", (error) => {
   console.log("uncaughtException", error);
   process.exit(1);
 });
+
+const memberController = new MemberController();
 
 app.use(cors());
 app.use(express.json());

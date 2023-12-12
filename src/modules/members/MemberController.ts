@@ -7,10 +7,10 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from "@/exceptions";
-import { logger } from "@/modules/common/logger";
+import { logger } from "@/services/logger";
 import { signInDTO, signUpDTO } from "@/modules/members/validation";
 import handleControllerException from "@/decorators/handleControllerException";
-import membersService from "@/modules/members/services/MemberService";
+import prisma from "@/services/prisma";
 
 const SECRET = process.env.SECRET || "";
 
@@ -20,7 +20,7 @@ export interface MemberControllerI {
   checkAuth: (req: Request, res: Response) => Promise<void>;
 }
 
-class MemberController implements MemberControllerI {
+export default class MemberController implements MemberControllerI {
   @handleControllerException
   async signIn(req: Request, res: Response) {
     await signInDTO.validateAsync(req.body);
@@ -28,7 +28,7 @@ class MemberController implements MemberControllerI {
     const hash = createHash("sha256");
     hash.update(password);
     const hashedPassword = hash.digest("hex");
-    const member = await membersService.findByEmail(email);
+    const member = await prisma.member.findUniqueOrThrow({ where: { email } });
     if (!member) {
       throw new NotFoundException("Member does not exist.");
     }
@@ -54,12 +54,17 @@ class MemberController implements MemberControllerI {
   async signUp(req: Request, res: Response) {
     await signUpDTO.validateAsync(req.body);
     const { email, password, name, role } = req.body;
+    const hash = createHash("sha256");
+    hash.update(password);
+    const hashedPassword = hash.digest("hex");
 
-    const member = await membersService.create({
-      name,
-      role,
-      email,
-      password,
+    const member = await prisma.member.create({
+      data: {
+        name,
+        role,
+        email,
+        password: hashedPassword,
+      },
     });
 
     logger.debug("A member signed up:", member);
@@ -86,5 +91,3 @@ class MemberController implements MemberControllerI {
     });
   }
 }
-
-export default new MemberController();

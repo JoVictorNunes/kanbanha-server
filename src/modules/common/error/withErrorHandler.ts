@@ -1,5 +1,5 @@
-import { Prisma } from "@prisma/client";
 import Joi from "joi";
+import { Prisma } from "@prisma/client";
 import {
   BadRequestException,
   BaseException,
@@ -9,14 +9,17 @@ import {
 } from "@/exceptions";
 import { PRISMA_ERROR_CODES } from "@/constants";
 import type { ResponseCallback } from "@/io";
+import logger from "@/services/logger";
 
-const withErrorHandler = <D extends object | string, C extends ResponseCallback>(
-  handler: (data: D, callback: C) => Promise<void>
-) => {
+type Handler<D, C> = (data: D, callback: C) => Promise<void>;
+type Data = object | string;
+
+const withErrorHandler = <D extends Data, C extends ResponseCallback>(handler: Handler<D, C>) => {
   return async (data: D, callback: C) => {
     try {
       await handler(data, callback);
     } catch (e) {
+      logger.error("Handler call error", { reason: e });
       if (e instanceof BaseException) {
         callback(e);
         return;
@@ -27,11 +30,11 @@ const withErrorHandler = <D extends object | string, C extends ResponseCallback>
       }
       if (e instanceof Prisma.PrismaClientKnownRequestError) {
         if (e.code === PRISMA_ERROR_CODES.UNIQUE_CONSTRAINT) {
-          callback(new ConflictException());
+          callback(new ConflictException(e.message));
           return;
         }
         if (e.code === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
-          callback(new NotFoundException());
+          callback(new NotFoundException(e.message));
         }
       }
       callback(new InternalServerException());

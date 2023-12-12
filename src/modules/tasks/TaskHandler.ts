@@ -1,22 +1,59 @@
-import prisma from "@/modules/database/services/prisma";
+import { ACKNOWLEDGEMENTS } from "@/constants";
+import withErrorHandler from "@/modules/common/error/withErrorHandler";
+import withReadErrorHandler from "@/modules/common/error/withReadErrorHandler";
+import {
+  CLIENT_TO_SERVER_EVENTS,
+  KanbanhaServer,
+  KanbanhaSocket,
+  ReadCallback,
+  ResponseCallback,
+  SERVER_TO_CLIENT_EVENTS,
+  Task,
+  CreateTaskData,
+  DeleteTaskData,
+  UpdateTaskData,
+  MoveTaskData,
+} from "@/io";
+import { CreateTaskSchema, DeleteTaskSchema, UpdateTaskSchema } from "./validation";
+import prisma from "../../services/prisma";
 
 type Nullable<T> = {
   [Key in keyof T]: T[Key] | null;
 };
 
-class TaskService {
-  async create(data: {
-    date: number;
-    description: string;
-    dueDate: number;
-    assignees: string[];
-    teamId: string;
-    status: "active" | "ongoing" | "review" | "finished";
-  }) {
-    return prisma.$transaction(async (ctx) => {
+export default class TaskHandler {
+  constructor(private io: KanbanhaServer, private socket: KanbanhaSocket) {
+    this.create = this.create.bind(this);
+    this.delete = this.delete.bind(this);
+    this.read = this.read.bind(this);
+    this.update = this.update.bind(this);
+    this.move = this.move.bind(this);
+  }
+
+  registerHandlers() {
+    this.socket.on(CLIENT_TO_SERVER_EVENTS.TASKS.CREATE, withErrorHandler(this.create));
+    this.socket.on(CLIENT_TO_SERVER_EVENTS.TASKS.DELETE, withErrorHandler(this.delete));
+    this.socket.on(CLIENT_TO_SERVER_EVENTS.TASKS.READ, withReadErrorHandler(this.read));
+    this.socket.on(CLIENT_TO_SERVER_EVENTS.TASKS.UPDATE, withErrorHandler(this.update));
+    this.socket.on(CLIENT_TO_SERVER_EVENTS.TASKS.MOVE, withErrorHandler(this.move));
+  }
+
+  async create(data: CreateTaskData, callback: ResponseCallback) {
+    await CreateTaskSchema.validateAsync(data);
+    const task = await prisma.$transaction(async (ctx) => {
       const { assignees, date, description, dueDate, status, teamId } = data;
+      const index = await ctx.task.count({
+        where: {
+          teamId,
+          status,
+        },
+      });
       const createdAt = new Date();
-      let times: Partial<{ finishedAt: Date; inDevelopmentAt: Date; inReviewAt: Date }>;
+      let times: Partial<{
+        finishedAt: Date;
+        inDevelopmentAt: Date;
+        inReviewAt: Date;
+      }>;
       switch (status) {
         case "ongoing": {
           times = {
@@ -44,7 +81,7 @@ class TaskService {
           times = {};
         }
       }
-      const task = ctx.task.create({
+      return ctx.task.create({
         data: {
           assignees: {
             create: [
@@ -67,99 +104,145 @@ class TaskService {
               id: teamId,
             },
           },
-          index: await ctx.task.count({ where: { teamId, status } }),
+          index,
           ...times,
         },
       });
-      return task;
+    });
+    const teamMembers = await prisma.member.findMany({
+      where: {
+        teams: {
+          some: {
+            teamId: data.teamId,
+          },
+        },
+      },
+    });
+    const teamMemberIds = teamMembers.map((member) => member.id);
+    callback(ACKNOWLEDGEMENTS.CREATED);
+    this.io.to(teamMemberIds).emit(SERVER_TO_CLIENT_EVENTS.TASKS.CREATE, {
+      ...task,
+      assignees: data.assignees,
+      status: task.status as "active" | "ongoing" | "review" | "finished",
     });
   }
 
-  async readByMember(memberId: string) {
-    return prisma.$transaction(async (ctx) => {
-      const tasks = await ctx.task.findMany({
-        where: {
-          team: {
-            members: {
-              some: {
-                member: {
-                  id: memberId,
+  async read(callback: ReadCallback<Task[]>) {
+    const currentMember = this.socket.data.member!;
+    const tasks = await prisma.task.findMany({
+      where: {
+        team: {
+          members: {
+            some: {
+              member: {
+                id: currentMember.id,
+              },
+            },
+          },
+        },
+      },
+      include: {
+        assignees: {
+          select: {
+            memberId: true,
+          },
+        },
+      },
+    });
+    const taskData = tasks.map((t) => {
+      const { assignees, ...rest } = t;
+      return {
+        ...rest,
+        assignees: assignees.map((a) => a.memberId),
+        status: rest.status as "active" | "ongoing" | "review" | "finished",
+      };
+    });
+    callback(taskData);
+  }
+
+  async update(data: UpdateTaskData, callback: ResponseCallback) {
+    await UpdateTaskSchema.validateAsync(data);
+    const { assignees, date, description, dueDate, id } = data;
+    const task = await prisma.task.update({
+      where: { id },
+      data: {
+        date: new Date(date),
+        description,
+        dueDate: new Date(dueDate),
+        assignees: {
+          create: [
+            ...assignees.map((assignee) => ({
+              member: {
+                connect: {
+                  id: assignee,
+                },
+              },
+            })),
+          ],
+        },
+      },
+      include: {
+        assignees: {
+          select: {
+            memberId: true,
+          },
+        },
+      },
+    });
+    const taskData = {
+      ...task,
+      status: task.status as "active" | "ongoing" | "review" | "finished",
+      assignees: task.assignees.map((a) => a.memberId),
+    };
+    const teamMembers = await prisma.member.findMany({
+      where: {
+        teams: {
+          some: {
+            team: {
+              tasks: {
+                some: {
+                  id,
                 },
               },
             },
           },
         },
-        include: {
-          assignees: {
-            select: {
-              memberId: true,
-            },
-          },
-        },
-      });
-      const tasksMapped = tasks.map((t) => {
-        const { assignees, ...rest } = t;
-        return {
-          ...rest,
-          assignees: assignees.map((a) => a.memberId),
-          status: rest.status as "active" | "ongoing" | "review" | "finished",
-        };
-      });
-      return tasksMapped;
+      },
     });
+    const teamMemberIds = teamMembers.map((member) => member.id);
+    this.io.to(teamMemberIds).emit(SERVER_TO_CLIENT_EVENTS.TASKS.UPDATE, taskData);
+    callback(ACKNOWLEDGEMENTS.DELETED);
   }
 
-  async update(
-    taskId: string,
-    data: { date: number; description: string; dueDate: number; assignees: string[] }
-  ) {
-    return prisma.$transaction(async (ctx) => {
-      const { assignees, date, description, dueDate } = data;
-      const task = await ctx.task.update({
-        where: { id: taskId },
-        data: {
-          date: new Date(date),
-          description,
-          dueDate: new Date(dueDate),
-          assignees: {
-            create: [
-              ...assignees.map((assignee) => ({
-                member: {
-                  connect: {
-                    id: assignee,
-                  },
+  async delete(taskId: DeleteTaskData, callback: ResponseCallback) {
+    await DeleteTaskSchema.validateAsync(taskId);
+    await prisma.$transaction([
+      prisma.assigneesOnTask.deleteMany({ where: { taskId } }),
+      prisma.task.delete({ where: { id: taskId } }),
+    ]);
+    const teamMembers = await prisma.member.findMany({
+      where: {
+        teams: {
+          some: {
+            team: {
+              tasks: {
+                some: {
+                  id: taskId,
                 },
-              })),
-            ],
-          },
-        },
-        include: {
-          assignees: {
-            select: {
-              memberId: true,
+              },
             },
           },
         },
-      });
-      const mappedTask = {
-        ...task,
-        status: task.status as "active" | "ongoing" | "review" | "finished",
-        assignees: task.assignees.map((a) => a.memberId),
-      };
-      return mappedTask;
+      },
     });
+    const teamMemberIds = teamMembers.map((member) => member.id);
+    callback(ACKNOWLEDGEMENTS.CREATED);
+    this.io.to(teamMemberIds).emit(SERVER_TO_CLIENT_EVENTS.TASKS.DELETE, taskId);
   }
 
-  async delete(taskId: string) {
-    return prisma.$transaction(async (ctx) => {
-      const assignees = await ctx.assigneesOnTask.deleteMany({ where: { taskId } });
-      const task = ctx.task.delete({ where: { id: taskId } });
-      return task;
-    });
-  }
-
-  async move(taskId: string, status: string, index: number) {
-    return prisma.$transaction(async (ctx) => {
+  async move(data: MoveTaskData, callback: ResponseCallback) {
+    const { index, status, taskId } = data;
+    const tasks = await prisma.$transaction(async (ctx) => {
       const task = await ctx.task.findUniqueOrThrow({ where: { id: taskId } });
       if (task.status === status) {
         if (task.index === index) return [];
@@ -289,8 +372,25 @@ class TaskService {
         })
       );
     });
+    const teamMembers = await prisma.member.findMany({
+      where: {
+        teams: {
+          some: {
+            team: {
+              tasks: {
+                some: {
+                  id: taskId,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const teamMemberIds = teamMembers.map((member) => member.id);
+    tasks.forEach((task) => {
+      this.io.to(teamMemberIds).emit(SERVER_TO_CLIENT_EVENTS.TASKS.UPDATE, task);
+    });
+    callback(ACKNOWLEDGEMENTS.CREATED);
   }
 }
-
-export const taskService = new TaskService();
-export default taskService;
