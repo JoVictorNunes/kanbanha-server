@@ -15,14 +15,14 @@ CREATE TABLE "Project" (
 );
 
 -- CreateTable
-CREATE TABLE "MembersOnProject" (
+CREATE TABLE "ProjectMembership" (
     "memberId" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
     "owner" BOOLEAN NOT NULL,
 
     PRIMARY KEY ("memberId", "projectId"),
-    CONSTRAINT "MembersOnProject_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "MembersOnProject_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "ProjectMembership_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "ProjectMembership_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -34,23 +34,23 @@ CREATE TABLE "Team" (
 );
 
 -- CreateTable
-CREATE TABLE "MembersOnTeam" (
+CREATE TABLE "TeamMembership" (
     "memberId" TEXT NOT NULL,
     "teamId" TEXT NOT NULL,
 
     PRIMARY KEY ("memberId", "teamId"),
-    CONSTRAINT "MembersOnTeam_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "MembersOnTeam_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "TeamMembership_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "TeamMembership_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "AssigneesOnTask" (
+CREATE TABLE "Assignee" (
     "memberId" TEXT NOT NULL,
     "taskId" TEXT NOT NULL,
 
     PRIMARY KEY ("memberId", "taskId"),
-    CONSTRAINT "AssigneesOnTask_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "AssigneesOnTask_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "Assignee_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Assignee_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -72,13 +72,13 @@ CREATE TABLE "Task" (
 -- CreateTable
 CREATE TABLE "Invite" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "projectId" TEXT NOT NULL,
-    "memberId" TEXT NOT NULL,
+    "projectId" TEXT,
+    "memberId" TEXT,
     "text" TEXT NOT NULL,
     "accepted" BOOLEAN NOT NULL DEFAULT false,
     "when" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Invite_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "Invite_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "Invite_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "Invite_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateIndex

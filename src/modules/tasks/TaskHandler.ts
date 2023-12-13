@@ -217,7 +217,7 @@ export default class TaskHandler {
   async delete(taskId: DeleteTaskData, callback: ResponseCallback) {
     await DeleteTaskSchema.validateAsync(taskId);
     await prisma.$transaction([
-      prisma.assigneesOnTask.deleteMany({ where: { taskId } }),
+      prisma.assignee.deleteMany({ where: { taskId } }),
       prisma.task.delete({ where: { id: taskId } }),
     ]);
     const teamMembers = await prisma.member.findMany({

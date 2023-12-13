@@ -66,8 +66,7 @@ class ProjectHandler {
     if (invited) {
       for (const email of invited) {
         try {
-          const member = await prisma.member.findUnique({ where: { email } });
-          if (!member) continue;
+          const member = await prisma.member.findUniqueOrThrow({ where: { email } });
           const invite = await prisma.invite.create({
             data: {
               member: {
@@ -95,7 +94,7 @@ class ProjectHandler {
     await DeleteProjectSchema.validateAsync(data);
     const { id: projectId } = data;
     const currentMember = this.socket.data.member!;
-    const membership = await prisma.membersOnProject.findUnique({
+    const membership = await prisma.projectMembership.findUnique({
       where: {
         memberId_projectId: {
           memberId: currentMember.id,
@@ -123,7 +122,7 @@ class ProjectHandler {
       },
     });
     await prisma.$transaction([
-      prisma.assigneesOnTask.deleteMany({
+      prisma.assignee.deleteMany({
         where: {
           task: {
             team: {
@@ -132,14 +131,14 @@ class ProjectHandler {
           },
         },
       }),
-      prisma.membersOnTeam.deleteMany({
+      prisma.teamMembership.deleteMany({
         where: {
           team: {
             projectId,
           },
         },
       }),
-      prisma.membersOnProject.deleteMany({
+      prisma.projectMembership.deleteMany({
         where: {
           projectId,
         },
@@ -206,7 +205,7 @@ class ProjectHandler {
     await UpdateProjectSchema.validateAsync(data);
     const { id: projectId, name } = data;
     const currentMember = this.socket.data.member!;
-    const membership = await prisma.membersOnProject.findUnique({
+    const membership = await prisma.projectMembership.findUnique({
       where: {
         memberId_projectId: {
           memberId: currentMember.id,

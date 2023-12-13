@@ -36,7 +36,7 @@ export default class TeamHandler {
     await CreateTeamSchema.validateAsync(data);
     const { projectId, members, name } = data;
     const currentMember = this.socket.data.member!;
-    const membership = await prisma.membersOnProject.findUnique({
+    const membership = await prisma.projectMembership.findUnique({
       where: {
         memberId_projectId: {
           memberId: currentMember.id,
@@ -124,7 +124,7 @@ export default class TeamHandler {
         id: teamId,
       },
     });
-    const membership = await prisma.membersOnProject.findUnique({
+    const membership = await prisma.projectMembership.findUnique({
       where: {
         memberId_projectId: {
           memberId: currentMember.id,
@@ -166,7 +166,7 @@ export default class TeamHandler {
         id: teamId,
       },
     });
-    const membership = await prisma.membersOnProject.findUnique({
+    const membership = await prisma.projectMembership.findUnique({
       where: {
         memberId_projectId: {
           memberId: currentMember.id,
@@ -188,14 +188,14 @@ export default class TeamHandler {
       },
     });
     await prisma.$transaction([
-      prisma.assigneesOnTask.deleteMany({
+      prisma.assignee.deleteMany({
         where: {
           task: {
             teamId,
           },
         },
       }),
-      prisma.membersOnTeam.deleteMany({
+      prisma.teamMembership.deleteMany({
         where: {
           teamId,
         },

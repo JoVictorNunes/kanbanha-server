@@ -8,11 +8,13 @@ import {
   ResponseCallback,
   SERVER_TO_CLIENT_EVENTS,
 } from "@/io";
+import logger from "@/services/logger";
+import prisma from "@/services/prisma";
 import withErrorHandler from "@/modules/common/error/withErrorHandler";
 import withReadErrorHandler from "@/modules/common/error/withReadErrorHandler";
 import { ACKNOWLEDGEMENTS } from "@/constants";
 import { AcceptInviteSchema, CreateInviteSchema } from "@/modules/invites/validation";
-import prisma from "../../services/prisma";
+import { NotFoundException, UnauthorizedException } from "@/exceptions";
 
 export default class InviteHandler {
   constructor(private io: KanbanhaServer, private socket: KanbanhaSocket) {
@@ -31,20 +33,50 @@ export default class InviteHandler {
     await CreateInviteSchema.validateAsync(data);
     const { invited, projectId } = data;
     const currentMember = this.socket.data.member!;
+    const project = await prisma.project.findUniqueOrThrow({
+      where: {
+        id: projectId,
+      },
+    });
+    const membership = await prisma.projectMembership.findUnique({
+      where: {
+        memberId_projectId: {
+          memberId: currentMember.id,
+          projectId,
+        },
+      },
+    });
+    const hasPermission = membership && membership.owner;
+    if (!hasPermission) {
+      throw new UnauthorizedException("You do not have permission for this action.");
+    }
     for (const email of invited) {
       try {
         const invite = await prisma.invite.create({
           data: {
-            text: `You have been invited to participate in the ${projectId} project.`,
-            project: { connect: { id: projectId } },
-            member: { connect: { email } },
+            text: `You have been invited to participate in the ${project.name} project.`,
+            project: {
+              connect: {
+                id: projectId,
+              },
+            },
+            member: {
+              connect: {
+                email,
+              },
+            },
           },
-          include: { member: true },
+          include: {
+            member: true,
+          },
         });
-        this.io
-          .to(invite.memberId)
-          .emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, { ...invite, memberId: invite.memberId });
-      } catch {}
+        this.io.to(invite.memberId).emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, {
+          ...invite,
+          memberId: invite.memberId,
+        });
+      } catch {
+        logger.debug(`Failed to invite ${email} to ${project.name} project.`);
+      }
     }
     callback(ACKNOWLEDGEMENTS.CREATED);
   }
@@ -52,23 +84,49 @@ export default class InviteHandler {
   async accept(inviteId: string, callback: ResponseCallback) {
     await AcceptInviteSchema.validateAsync(inviteId);
     const currentMember = this.socket.data.member!;
-    const invite = await prisma.invite.update({
-      where: { id: inviteId },
-      data: { accepted: true },
+    const invite = await prisma.invite.findFirstOrThrow({
+      where: {
+        id: inviteId,
+        memberId: currentMember.id,
+      },
+      include: {
+        project: true,
+      },
+    });
+    if (invite.accepted) {
+      callback(ACKNOWLEDGEMENTS.CREATED);
+      return;
+    }
+    if (!invite.project) {
+      throw new NotFoundException("This project does not exist.");
+    }
+    const updatedInvite = await prisma.invite.update({
+      where: {
+        id: inviteId,
+      },
+      data: {
+        accepted: true,
+      },
     });
     const project = await prisma.project.update({
-      where: { id: invite.projectId },
+      where: {
+        id: invite.project.id,
+      },
       data: {
         members: {
           create: {
             owner: false,
             member: {
-              connect: { id: invite.memberId },
+              connect: {
+                id: invite.memberId,
+              },
             },
           },
         },
       },
-      include: { members: true },
+      include: {
+        members: true,
+      },
     });
     const projectMemberIds = project.members.map((member) => member.memberId);
     const owner = project.members.find((member) => member.owner)!;
@@ -78,9 +136,10 @@ export default class InviteHandler {
       name: project.name,
       ownerId: owner.memberId,
     });
-    this.io
-      .to(currentMember.id)
-      .emit(SERVER_TO_CLIENT_EVENTS.INVITES.UPDATE, { ...invite, memberId: currentMember.id });
+    this.io.to(currentMember.id).emit(SERVER_TO_CLIENT_EVENTS.INVITES.UPDATE, {
+      ...updatedInvite,
+      memberId: currentMember.id,
+    });
     callback(ACKNOWLEDGEMENTS.CREATED);
   }
 

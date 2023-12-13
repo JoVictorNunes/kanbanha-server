@@ -17,21 +17,21 @@ model Member {
   password String
   role     String
   online   Boolean            @default(false)
-  projects MembersOnProject[]
-  teams    MembersOnTeam[]
-  tasks    AssigneesOnTask[]
+  projects ProjectMembership[]
+  teams    TeamMembership[]
+  tasks    Assignee[]
   invites  Invite[]
 }
 
 model Project {
   id      String             @id @default(uuid())
   name    String             @unique
-  members MembersOnProject[]
+  members ProjectMembership[]
   teams   Team[]
   invites Invite[]
 }
 
-model MembersOnProject {
+model ProjectMembership {
   member    Member  @relation(fields: [memberId], references: [id])
   memberId  String
   project   Project @relation(fields: [projectId], references: [id])
@@ -47,11 +47,11 @@ model Team {
   name      String
   project   Project         @relation(fields: [projectId], references: [id])
   projectId String
-  members   MembersOnTeam[]
+  members   TeamMembership[]
   tasks     Task[]
 }
 
-model MembersOnTeam {
+model TeamMembership {
   member   Member @relation(fields: [memberId], references: [id])
   memberId String
   team     Team   @relation(fields: [teamId], references: [id])
@@ -60,7 +60,7 @@ model MembersOnTeam {
   @@id([memberId, teamId])
 }
 
-model AssigneesOnTask {
+model Assignee {
   member   Member @relation(fields: [memberId], references: [id])
   memberId String
   task     Task   @relation(fields: [taskId], references: [id])
@@ -78,7 +78,7 @@ model Task {
   inDevelopmentAt DateTime?
   inReviewAt      DateTime?
   dueDate         DateTime
-  assignees       AssigneesOnTask[]
+  assignees       Assignee[]
   status          String
   team            Team              @relation(fields: [teamId], references: [id])
   teamId          String
@@ -88,8 +88,8 @@ model Task {
 model Invite {
   id String @id @default(uuid())
 
-  project   Project @relation(fields: [projectId], references: [id])
-  projectId String
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
   member    Member  @relation(fields: [memberId], references: [id])
   memberId  String
 

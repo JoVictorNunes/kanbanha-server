@@ -44,7 +44,7 @@ export type Member = {
 
 export type Invite = {
   id: UUID;
-  projectId: UUID;
+  projectId: UUID | null;
   memberId: UUID;
   text: string;
   when: Date;

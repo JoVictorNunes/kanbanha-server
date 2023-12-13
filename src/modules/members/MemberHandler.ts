@@ -50,7 +50,7 @@ export default class MemberHandler {
         role: data.role,
       },
     });
-    const memberProjects = await prisma.membersOnProject.findMany({
+    const memberProjects = await prisma.projectMembership.findMany({
       where: {
         memberId: currentMember.id,
       },
@@ -59,7 +59,7 @@ export default class MemberHandler {
       },
     });
     const projectIds = memberProjects.map((t) => t.projectId);
-    const members = await prisma.membersOnProject.findMany({
+    const members = await prisma.projectMembership.findMany({
       where: {
         projectId: {
           in: projectIds,
