@@ -12,7 +12,9 @@ export const CreateTaskSchema = Joi.object({
   status: Joi.string().equal("active", "ongoing", "review", "finished").required(),
 }).required();
 
-export const DeleteTaskSchema = Joi.string().uuid().required();
+export const DeleteTaskSchema = Joi.object({
+  id: Joi.string().uuid().required(),
+});
 
 export const UpdateTaskSchema = Joi.object({
   assignees: Joi.array()

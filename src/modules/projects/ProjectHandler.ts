@@ -66,12 +66,11 @@ class ProjectHandler {
     if (invited) {
       for (const email of invited) {
         try {
-          const member = await prisma.member.findUniqueOrThrow({ where: { email } });
           const invite = await prisma.invite.create({
             data: {
               member: {
                 connect: {
-                  id: member.id,
+                  email,
                 },
               },
               project: {
@@ -94,18 +93,6 @@ class ProjectHandler {
     await DeleteProjectSchema.validateAsync(data);
     const { id: projectId } = data;
     const currentMember = this.socket.data.member!;
-    const membership = await prisma.projectMembership.findUnique({
-      where: {
-        memberId_projectId: {
-          memberId: currentMember.id,
-          projectId: projectId,
-        },
-      },
-    });
-    const isOwnedByMember = membership && membership.owner;
-    if (!isOwnedByMember) {
-      throw new UnauthorizedException("You do not have permission for deleting this project.");
-    }
     const deletedProject = await prisma.project.findUniqueOrThrow({
       where: {
         id: projectId,
@@ -121,6 +108,18 @@ class ProjectHandler {
         members: true,
       },
     });
+    const membership = await prisma.projectMembership.findUnique({
+      where: {
+        memberId_projectId: {
+          memberId: currentMember.id,
+          projectId: projectId,
+        },
+      },
+    });
+    const hasPermission = membership && membership.owner;
+    if (!hasPermission) {
+      throw new UnauthorizedException("You do not have permission to delete this project.");
+    }
     await prisma.$transaction([
       prisma.assignee.deleteMany({
         where: {
@@ -143,9 +142,12 @@ class ProjectHandler {
           projectId,
         },
       }),
-      prisma.invite.deleteMany({
+      prisma.invite.updateMany({
         where: {
           projectId,
+        },
+        data: {
+          projectId: null,
         },
       }),
       prisma.task.deleteMany({
@@ -215,7 +217,7 @@ class ProjectHandler {
     });
     const isOwnedByMember = membership && membership.owner;
     if (!isOwnedByMember) {
-      throw new UnauthorizedException("You do not have permission for updating this project.");
+      throw new UnauthorizedException("You do not have permission to update this project.");
     }
     const updatedProject = await prisma.project.update({
       where: { id: projectId },

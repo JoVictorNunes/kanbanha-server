@@ -7,6 +7,7 @@ import {
   ReadCallback,
   ResponseCallback,
   SERVER_TO_CLIENT_EVENTS,
+  AccepteInviteData,
 } from "@/io";
 import logger from "@/services/logger";
 import prisma from "@/services/prisma";
@@ -66,14 +67,8 @@ export default class InviteHandler {
               },
             },
           },
-          include: {
-            member: true,
-          },
         });
-        this.io.to(invite.memberId).emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, {
-          ...invite,
-          memberId: invite.memberId,
-        });
+        this.io.to(invite.memberId).emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, invite);
       } catch {
         logger.debug(`Failed to invite ${email} to ${project.name} project.`);
       }
@@ -81,8 +76,9 @@ export default class InviteHandler {
     callback(ACKNOWLEDGEMENTS.CREATED);
   }
 
-  async accept(inviteId: string, callback: ResponseCallback) {
-    await AcceptInviteSchema.validateAsync(inviteId);
+  async accept(data: AccepteInviteData, callback: ResponseCallback) {
+    await AcceptInviteSchema.validateAsync(data);
+    const { id: inviteId } = data;
     const currentMember = this.socket.data.member!;
     const invite = await prisma.invite.findFirstOrThrow({
       where: {
@@ -147,9 +143,22 @@ export default class InviteHandler {
     const currentMember = this.socket.data.member!;
     const invites = await prisma.invite.findMany({
       where: {
-        memberId: currentMember.id,
+        OR: [
+          {
+            memberId: currentMember.id,
+          },
+          {
+            project: {
+              members: {
+                some: {
+                  memberId: currentMember.id,
+                },
+              },
+            },
+          },
+        ],
       },
     });
-    callback(invites.map((i) => ({ ...i, memberId: currentMember.id })));
+    callback(invites);
   }
 }

@@ -15,7 +15,7 @@ import {
   MoveTaskData,
 } from "@/io";
 import { CreateTaskSchema, DeleteTaskSchema, UpdateTaskSchema } from "./validation";
-import prisma from "../../services/prisma";
+import prisma from "@/services/prisma";
 
 type Nullable<T> = {
   [Key in keyof T]: T[Key] | null;
@@ -214,8 +214,9 @@ export default class TaskHandler {
     callback(ACKNOWLEDGEMENTS.DELETED);
   }
 
-  async delete(taskId: DeleteTaskData, callback: ResponseCallback) {
-    await DeleteTaskSchema.validateAsync(taskId);
+  async delete(data: DeleteTaskData, callback: ResponseCallback) {
+    await DeleteTaskSchema.validateAsync(data);
+    const { id: taskId } = data;
     await prisma.$transaction([
       prisma.assignee.deleteMany({ where: { taskId } }),
       prisma.task.delete({ where: { id: taskId } }),

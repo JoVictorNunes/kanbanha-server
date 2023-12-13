@@ -50,7 +50,7 @@ export default class TeamHandler {
         "You do not have permission to create a team for this project."
       );
     }
-    const memberIds = members;
+    const memberIds = members ? members : [currentMember.id];
     if (!memberIds.includes(currentMember.id)) {
       memberIds.push(currentMember.id);
     }
@@ -158,8 +158,9 @@ export default class TeamHandler {
     callback(ACKNOWLEDGEMENTS.UPDATED);
   }
 
-  async delete(teamId: DeleteTeamData, callback: ResponseCallback) {
-    await DeleteTeamSchema.validateAsync(teamId);
+  async delete(data: DeleteTeamData, callback: ResponseCallback) {
+    await DeleteTeamSchema.validateAsync(data);
+    const { id: teamId } = data
     const currentMember = this.socket.data.member!;
     const team = await prisma.team.findUniqueOrThrow({
       where: {
