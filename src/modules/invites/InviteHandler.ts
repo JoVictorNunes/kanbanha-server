@@ -152,6 +152,7 @@ export default class InviteHandler {
               members: {
                 some: {
                   memberId: currentMember.id,
+                  owner: true,
                 },
               },
             },

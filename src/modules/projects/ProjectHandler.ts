@@ -33,6 +33,24 @@ class ProjectHandler {
     this.socket.on(CLIENT_TO_SERVER_EVENTS.PROJECTS.UPDATE, withErrorHandler(this.update));
   }
 
+  async createInvite(email: string, projectId: string, text: string) {
+    return prisma.invite.create({
+      data: {
+        member: {
+          connect: {
+            email,
+          },
+        },
+        project: {
+          connect: {
+            id: projectId,
+          },
+        },
+        text,
+      },
+    });
+  }
+
   async create(data: CreateProjectData, callback: ResponseCallback) {
     await CreateProjectSchema.validateAsync(data);
     const { name, invited } = data;
@@ -64,28 +82,27 @@ class ProjectHandler {
     callback(ACKNOWLEDGEMENTS.CREATED);
 
     if (invited) {
-      for (const email of invited) {
-        try {
-          const invite = await prisma.invite.create({
-            data: {
-              member: {
-                connect: {
-                  email,
-                },
-              },
-              project: {
-                connect: {
-                  id: project.id,
-                },
-              },
-              text: `You have been invited to participate in the ${project.name} project.`,
-            },
-          });
-          this.io.to(invite.memberId).emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, invite);
-        } catch (e) {
-          logger.debug(`Failed to invite ${email} to ${project.name} project.`, { reason: e });
+      const invitePromises = invited.map((email) => {
+        return this.createInvite(
+          email,
+          project.id,
+          `You have been invited to participate in the ${project.name} project.`
+        );
+      });
+      const inviteResults = await Promise.allSettled(invitePromises);
+      inviteResults.forEach((result) => {
+        if (result.status === "fulfilled") {
+          const invite = result.value;
+
+          // We also send the invite to the project's owner so that he can track who is invited.
+          this.io
+            .to([invite.memberId, currentMember.id])
+            .emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, invite);
+        } else {
+          const { reason } = result;
+          logger.debug(`Failed to create invite. projectId=${project.id}.`, { reason });
         }
-      }
+      });
     }
   }
 

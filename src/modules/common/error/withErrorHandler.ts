@@ -35,6 +35,7 @@ const withErrorHandler = <D extends Data, C extends ResponseCallback>(handler: H
         }
         if (e.code === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
           callback(new NotFoundException(e.message));
+          return;
         }
       }
       callback(new InternalServerException());
