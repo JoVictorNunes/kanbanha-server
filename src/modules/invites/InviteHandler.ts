@@ -30,10 +30,29 @@ export default class InviteHandler {
     this.socket.on(CLIENT_TO_SERVER_EVENTS.INVITES.READ, withReadErrorHandler(this.read));
   }
 
+  async createInvite(email: string, projectId: string, text: string) {
+    return prisma.invite.create({
+      data: {
+        member: {
+          connect: {
+            email,
+          },
+        },
+        project: {
+          connect: {
+            id: projectId,
+          },
+        },
+        text,
+      },
+    });
+  }
+
   async create(data: CreateInviteData, callback: ResponseCallback) {
     await CreateInviteSchema.validateAsync(data);
     const { invited, projectId } = data;
     const currentMember = this.socket.data.member!;
+    const currentMemberId = currentMember.id;
     const project = await prisma.project.findUniqueOrThrow({
       where: {
         id: projectId,
@@ -42,7 +61,7 @@ export default class InviteHandler {
     const membership = await prisma.projectMembership.findUnique({
       where: {
         memberId_projectId: {
-          memberId: currentMember.id,
+          memberId: currentMemberId,
           projectId,
         },
       },
@@ -51,28 +70,27 @@ export default class InviteHandler {
     if (!hasPermission) {
       throw new UnauthorizedException("You do not have permission for this action.");
     }
-    for (const email of invited) {
-      try {
-        const invite = await prisma.invite.create({
-          data: {
-            text: `You have been invited to participate in the ${project.name} project.`,
-            project: {
-              connect: {
-                id: projectId,
-              },
-            },
-            member: {
-              connect: {
-                email,
-              },
-            },
-          },
-        });
-        this.io.to(invite.memberId).emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, invite);
-      } catch {
-        logger.debug(`Failed to invite ${email} to ${project.name} project.`);
+    const invitePromises = invited.map((email) => {
+      return this.createInvite(
+        email,
+        project.id,
+        `You have been invited to participate in the ${project.name} project.`
+      );
+    });
+    const inviteResults = await Promise.allSettled(invitePromises);
+    inviteResults.forEach((result) => {
+      if (result.status === "fulfilled") {
+        const invite = result.value;
+
+        // We also send the invite to the project's owner so that he can track who is invited.
+        this.io
+          .to([invite.memberId, currentMemberId])
+          .emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, invite);
+      } else {
+        const { reason } = result;
+        logger.debug(`Failed to create invite. projectId=${project.id}.`, { reason });
       }
-    }
+    });
     callback(ACKNOWLEDGEMENTS.CREATED);
   }
 
@@ -80,17 +98,18 @@ export default class InviteHandler {
     await AcceptInviteSchema.validateAsync(data);
     const { id: inviteId } = data;
     const currentMember = this.socket.data.member!;
+    const currentMemberId = currentMember.id;
     const invite = await prisma.invite.findFirstOrThrow({
       where: {
         id: inviteId,
-        memberId: currentMember.id,
+        memberId: currentMemberId,
       },
       include: {
         project: true,
       },
     });
     if (invite.accepted) {
-      callback(ACKNOWLEDGEMENTS.CREATED);
+      callback(ACKNOWLEDGEMENTS.UPDATED);
       return;
     }
     if (!invite.project) {
@@ -125,16 +144,16 @@ export default class InviteHandler {
       },
     });
     const projectMemberIds = project.members.map((member) => member.memberId);
-    const owner = project.members.find((member) => member.owner)!;
+    const ownership = project.members.find((member) => member.owner)!;
     this.io.to(projectMemberIds).emit(SERVER_TO_CLIENT_EVENTS.PROJECTS.UPDATE, {
       id: project.id,
       members: project.members.map((m) => m.memberId),
       name: project.name,
-      ownerId: owner.memberId,
+      ownerId: ownership.memberId,
     });
-    this.io.to(currentMember.id).emit(SERVER_TO_CLIENT_EVENTS.INVITES.UPDATE, {
+    this.io.to([currentMemberId, ownership.memberId]).emit(SERVER_TO_CLIENT_EVENTS.INVITES.UPDATE, {
       ...updatedInvite,
-      memberId: currentMember.id,
+      memberId: currentMemberId,
     });
     callback(ACKNOWLEDGEMENTS.CREATED);
   }

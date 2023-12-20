@@ -96,7 +96,7 @@ class ProjectHandler {
 
           // We also send the invite to the project's owner so that he can track who is invited.
           this.io
-            .to([invite.memberId, currentMember.id])
+            .to([invite.memberId, ownerId])
             .emit(SERVER_TO_CLIENT_EVENTS.INVITES.CREATE, invite);
         } else {
           const { reason } = result;
@@ -110,6 +110,7 @@ class ProjectHandler {
     await DeleteProjectSchema.validateAsync(data);
     const { id: projectId } = data;
     const currentMember = this.socket.data.member!;
+    const currentMemberId = currentMember.id;
     const deletedProject = await prisma.project.findUniqueOrThrow({
       where: {
         id: projectId,
@@ -128,7 +129,7 @@ class ProjectHandler {
     const membership = await prisma.projectMembership.findUnique({
       where: {
         memberId_projectId: {
-          memberId: currentMember.id,
+          memberId: currentMemberId,
           projectId: projectId,
         },
       },
