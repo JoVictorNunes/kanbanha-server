@@ -1,7 +1,5 @@
-import Joi from "joi";
 import { Prisma } from "@prisma/client";
 import {
-  BadRequestException,
   BaseException,
   ConflictException,
   InternalServerException,
@@ -22,10 +20,6 @@ const withErrorHandler = <D extends Data, C extends ResponseCallback>(handler: H
       logger.error("Handler call error", { reason: e });
       if (e instanceof BaseException) {
         callback(e);
-        return;
-      }
-      if (e instanceof Joi.ValidationError) {
-        callback(new BadRequestException(e.message));
         return;
       }
       if (e instanceof Prisma.PrismaClientKnownRequestError) {

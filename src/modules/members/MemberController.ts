@@ -1,3 +1,4 @@
+import Joi from "joi";
 import { createHash } from "node:crypto";
 import { Request, Response } from "express";
 import { sign, verify } from "jsonwebtoken";
@@ -8,7 +9,6 @@ import {
   UnauthorizedException,
 } from "@/exceptions";
 import { logger } from "@/services/logger";
-import { signInDTO, signUpDTO } from "@/modules/members/validation";
 import handleControllerException from "@/decorators/handleControllerException";
 import prisma from "@/services/prisma";
 
@@ -19,6 +19,18 @@ export interface MemberControllerI {
   signUp: (req: Request, res: Response) => Promise<void>;
   checkAuth: (req: Request, res: Response) => Promise<void>;
 }
+
+const signInDTO = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).required(),
+});
+
+const signUpDTO = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).required(),
+  name: Joi.string().min(3).max(50).required(),
+  role: Joi.string().min(3).max(20),
+});
 
 export default class MemberController implements MemberControllerI {
   @handleControllerException

@@ -1,20 +1,17 @@
 import {
-  CLIENT_TO_SERVER_EVENTS,
   Invite,
   CreateInviteData,
   KanbanhaServer,
   KanbanhaSocket,
   ReadCallback,
   ResponseCallback,
-  SERVER_TO_CLIENT_EVENTS,
   AccepteInviteData,
 } from "@/io";
 import logger from "@/services/logger";
 import prisma from "@/services/prisma";
 import withErrorHandler from "@/modules/common/error/withErrorHandler";
 import withReadErrorHandler from "@/modules/common/error/withReadErrorHandler";
-import { ACKNOWLEDGEMENTS } from "@/constants";
-import { AcceptInviteSchema, CreateInviteSchema } from "@/modules/invites/validation";
+import { ACKNOWLEDGEMENTS, CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from "@/constants";
 import { NotFoundException, UnauthorizedException } from "@/exceptions";
 
 export default class InviteHandler {
@@ -49,7 +46,6 @@ export default class InviteHandler {
   }
 
   async create(data: CreateInviteData, callback: ResponseCallback) {
-    await CreateInviteSchema.validateAsync(data);
     const { invited, projectId } = data;
     const currentMember = this.socket.data.member!;
     const currentMemberId = currentMember.id;
@@ -95,7 +91,6 @@ export default class InviteHandler {
   }
 
   async accept(data: AccepteInviteData, callback: ResponseCallback) {
-    await AcceptInviteSchema.validateAsync(data);
     const { id: inviteId } = data;
     const currentMember = this.socket.data.member!;
     const currentMemberId = currentMember.id;

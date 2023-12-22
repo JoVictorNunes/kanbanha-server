@@ -3,7 +3,6 @@ import withErrorHandler from "@/modules/common/error/withErrorHandler";
 import withReadErrorHandler from "@/modules/common/error/withReadErrorHandler";
 import logger from "@/services/logger";
 import {
-  CLIENT_TO_SERVER_EVENTS,
   KanbanhaServer,
   KanbanhaSocket,
   Project,
@@ -12,11 +11,9 @@ import {
   UpdateProjectData,
   ReadCallback,
   ResponseCallback,
-  SERVER_TO_CLIENT_EVENTS,
 } from "@/io";
-import { ACKNOWLEDGEMENTS } from "@/constants";
+import { ACKNOWLEDGEMENTS, CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from "@/constants";
 import { UnauthorizedException } from "@/exceptions";
-import { CreateProjectSchema, DeleteProjectSchema, UpdateProjectSchema } from "./validation";
 
 class ProjectHandler {
   constructor(private io: KanbanhaServer, private socket: KanbanhaSocket) {
@@ -52,7 +49,6 @@ class ProjectHandler {
   }
 
   async create(data: CreateProjectData, callback: ResponseCallback) {
-    await CreateProjectSchema.validateAsync(data);
     const { name, invited } = data;
     const currentMember = this.socket.data.member!;
     const ownerId = currentMember.id;
@@ -107,7 +103,6 @@ class ProjectHandler {
   }
 
   async delete(data: DeleteProjectData, callback: ResponseCallback) {
-    await DeleteProjectSchema.validateAsync(data);
     const { id: projectId } = data;
     const currentMember = this.socket.data.member!;
     const currentMemberId = currentMember.id;
@@ -222,7 +217,6 @@ class ProjectHandler {
   }
 
   async update(data: UpdateProjectData, callback: ResponseCallback) {
-    await UpdateProjectSchema.validateAsync(data);
     const { id: projectId, name } = data;
     const currentMember = this.socket.data.member!;
     const membership = await prisma.projectMembership.findUnique({

@@ -1,17 +1,14 @@
-import { ACKNOWLEDGEMENTS } from "@/constants";
+import { ACKNOWLEDGEMENTS, CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from "@/constants";
 import withErrorHandler from "@/modules/common/error/withErrorHandler";
 import withReadErrorHandler from "@/modules/common/error/withReadErrorHandler";
 import {
-  CLIENT_TO_SERVER_EVENTS,
   KanbanhaServer,
   KanbanhaSocket,
   Member,
   UpdateMemberData,
   ReadCallback,
   ResponseCallback,
-  SERVER_TO_CLIENT_EVENTS,
 } from "@/io";
-import { UpdateMemberSchema } from "./validation";
 import prisma from "@/services/prisma";
 
 export default class MemberHandler {
@@ -39,7 +36,6 @@ export default class MemberHandler {
   }
 
   async update(data: UpdateMemberData, callback: ResponseCallback) {
-    await UpdateMemberSchema.validateAsync(data);
     const currentMember = this.socket.data.member!;
     const updatedMember = await prisma.member.update({
       where: {

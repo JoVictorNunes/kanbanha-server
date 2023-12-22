@@ -1,21 +1,18 @@
 import withErrorHandler from "@/modules/common/error/withErrorHandler";
 import {
-  CLIENT_TO_SERVER_EVENTS,
   KanbanhaServer,
   KanbanhaSocket,
   ReadCallback,
   ResponseCallback,
-  SERVER_TO_CLIENT_EVENTS,
   Team,
   CreateTeamData,
   DeleteTeamData,
   UpdateTeamData,
 } from "@/io";
-import { CreateTeamSchema, DeleteTeamSchema, UpdateTeamSchema } from "./validation";
 import { UnauthorizedException } from "@/exceptions";
-import { ACKNOWLEDGEMENTS } from "@/constants";
+import { ACKNOWLEDGEMENTS, CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from "@/constants";
 import withReadErrorHandler from "@/modules/common/error/withReadErrorHandler";
-import prisma from "../../services/prisma";
+import prisma from "@/services/prisma";
 
 export default class TeamHandler {
   constructor(private io: KanbanhaServer, private socket: KanbanhaSocket) {
@@ -33,7 +30,6 @@ export default class TeamHandler {
   }
 
   async create(data: CreateTeamData, callback: ResponseCallback) {
-    await CreateTeamSchema.validateAsync(data);
     const { projectId, members, name } = data;
     const currentMember = this.socket.data.member!;
     const membership = await prisma.projectMembership.findUnique({
@@ -116,7 +112,6 @@ export default class TeamHandler {
   }
 
   async update(data: UpdateTeamData, callback: ResponseCallback) {
-    await UpdateTeamSchema.validateAsync(data);
     const { name, teamId } = data;
     const currentMember = this.socket.data.member!;
     const team = await prisma.team.findUniqueOrThrow({
@@ -159,7 +154,6 @@ export default class TeamHandler {
   }
 
   async delete(data: DeleteTeamData, callback: ResponseCallback) {
-    await DeleteTeamSchema.validateAsync(data);
     const { id: teamId } = data
     const currentMember = this.socket.data.member!;
     const team = await prisma.team.findUniqueOrThrow({

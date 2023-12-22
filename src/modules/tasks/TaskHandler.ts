@@ -1,20 +1,17 @@
-import { ACKNOWLEDGEMENTS } from "@/constants";
+import { ACKNOWLEDGEMENTS, CLIENT_TO_SERVER_EVENTS, SERVER_TO_CLIENT_EVENTS } from "@/constants";
 import withErrorHandler from "@/modules/common/error/withErrorHandler";
 import withReadErrorHandler from "@/modules/common/error/withReadErrorHandler";
 import {
-  CLIENT_TO_SERVER_EVENTS,
   KanbanhaServer,
   KanbanhaSocket,
   ReadCallback,
   ResponseCallback,
-  SERVER_TO_CLIENT_EVENTS,
   Task,
   CreateTaskData,
   DeleteTaskData,
   UpdateTaskData,
   MoveTaskData,
 } from "@/io";
-import { CreateTaskSchema, DeleteTaskSchema, UpdateTaskSchema } from "./validation";
 import prisma from "@/services/prisma";
 
 type Nullable<T> = {
@@ -39,7 +36,6 @@ export default class TaskHandler {
   }
 
   async create(data: CreateTaskData, callback: ResponseCallback) {
-    await CreateTaskSchema.validateAsync(data);
     const task = await prisma.$transaction(async (ctx) => {
       const { assignees, date, description, dueDate, status, teamId } = data;
       const index = await ctx.task.count({
@@ -161,7 +157,6 @@ export default class TaskHandler {
   }
 
   async update(data: UpdateTaskData, callback: ResponseCallback) {
-    await UpdateTaskSchema.validateAsync(data);
     const { assignees, date, description, dueDate, id } = data;
     const task = await prisma.task.update({
       where: { id },
@@ -215,7 +210,6 @@ export default class TaskHandler {
   }
 
   async delete(data: DeleteTaskData, callback: ResponseCallback) {
-    await DeleteTaskSchema.validateAsync(data);
     const { id: taskId } = data;
     await prisma.$transaction([
       prisma.assignee.deleteMany({ where: { taskId } }),
