@@ -84,7 +84,7 @@ const RemoveTeamMemberSchema = Joi.object({
   memberId: Joi.string().uuid().required(),
 });
 
-const callbackSchema = Joi.func().arity(1).required();
+const callbackSchema = Joi.func().required();
 
 const SCHEMA_RECORD: Record<string, Joi.ObjectSchema | null> = {
   "invites:accept": AcceptInviteSchema,
@@ -150,9 +150,9 @@ export default async function validation(event: Event, next: (error?: Error) => 
     next();
   } catch (e) {
     if (e instanceof Joi.ValidationError) {
-      callback(new BadRequestException(e.message));
+      next(new BadRequestException(e.message));
       return;
     }
-    callback(new InternalServerException());
+    next(new InternalServerException());
   }
 }
