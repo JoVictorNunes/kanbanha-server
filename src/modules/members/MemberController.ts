@@ -59,6 +59,7 @@ export default class MemberController implements MemberControllerI {
         return res.status(exception.code).json(exception);
       }
       res.status(201).json({ token });
+      logger.debug("A member signed in:", member);
     });
   }
 
@@ -69,7 +70,6 @@ export default class MemberController implements MemberControllerI {
     const hash = createHash("sha256");
     hash.update(password);
     const hashedPassword = hash.digest("hex");
-
     const member = await prisma.member.create({
       data: {
         name,
@@ -78,22 +78,30 @@ export default class MemberController implements MemberControllerI {
         password: hashedPassword,
       },
     });
-
-    logger.debug("A member signed up:", member);
-
-    res.status(201).json({
+    const payload = {
       id: member.id,
+      email: member.email,
       name: member.name,
       role: member.role,
-      email: member.email,
+    };
+    sign(payload, SECRET, { expiresIn: "2h" }, (error, token) => {
+      if (error) {
+        const exception = new InternalServerException();
+        return res.status(exception.code).json(exception);
+      }
+      res.status(201).json({ token });
+      logger.debug("A member signed up:", member);
     });
   }
 
   @handleControllerException
   async checkAuth(req: Request, res: Response) {
-    const { token } = req.query as { token: string | undefined };
+    const { token } = req.query;
     if (!token) {
       throw new BadRequestException("You must provide an authentication token in the URL query.");
+    }
+    if (typeof token !== 'string') {
+      throw new BadRequestException("Invalid auth token.");
     }
     verify(token, SECRET, (error) => {
       if (error) {
