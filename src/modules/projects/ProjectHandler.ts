@@ -88,7 +88,7 @@ class ProjectHandler {
       const inviteResults = await Promise.allSettled(invitePromises);
       inviteResults.forEach((result) => {
         if (result.status === "fulfilled") {
-          const invite = result.value;
+          const { value: invite } = result;
 
           // We also send the invite to the project's owner so that he can track who is invited.
           this.io

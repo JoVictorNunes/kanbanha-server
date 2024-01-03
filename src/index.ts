@@ -8,7 +8,6 @@ import httpServer from "@/server";
 import io from "@/io";
 import prisma from "@/services/prisma";
 import logger from "@/services/logger";
-import MemberController from "@/modules/members/MemberController";
 import ProjectHandler from "@/modules/projects/ProjectHandler";
 import TeamHandler from "@/modules/teams/TeamHandler";
 import TaskHandler from "@/modules/tasks/TaskHandler";
@@ -16,6 +15,7 @@ import MemberHandler from "@/modules/members/MemberHandler";
 import InviteHandler from "@/modules/invites/InviteHandler";
 import auth from "@/middlewares/auth";
 import validation from "@/middlewares/validation";
+import memberRouter from "./routes/members";
 
 const SECRET = process.env.SECRET || "";
 const PORT = Number(process.env.PORT) || 3000;
@@ -25,13 +25,9 @@ process.on("uncaughtException", (error) => {
   process.exit(1);
 });
 
-const memberController = new MemberController();
-
 app.use(cors());
 app.use(express.json());
-app.post("/signIn", memberController.signIn);
-app.post("/signUp", memberController.signUp);
-app.get("/checkAuth", memberController.checkAuth);
+app.use("/", memberRouter);
 io.use(auth);
 
 io.on("connection", async (socket) => {

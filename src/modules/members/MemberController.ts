@@ -1,7 +1,7 @@
 import Joi from "joi";
 import { createHash } from "node:crypto";
 import { Request, Response } from "express";
-import { sign, verify } from "jsonwebtoken";
+import { sign, verify, decode } from "jsonwebtoken";
 import {
   BadRequestException,
   InternalServerException,
@@ -18,7 +18,15 @@ export interface MemberControllerI {
   signIn: (req: Request, res: Response) => Promise<void>;
   signUp: (req: Request, res: Response) => Promise<void>;
   checkAuth: (req: Request, res: Response) => Promise<void>;
+  delete: (req: Request, res: Response) => Promise<void>;
 }
+
+type TokenPayload = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+};
 
 const signInDTO = Joi.object({
   email: Joi.string().email().required(),
@@ -47,7 +55,7 @@ export default class MemberController implements MemberControllerI {
     if (member.password !== hashedPassword) {
       throw new UnauthorizedException("Invalid password.");
     }
-    const payload = {
+    const payload: TokenPayload = {
       id: member.id,
       email: member.email,
       name: member.name,
@@ -78,7 +86,7 @@ export default class MemberController implements MemberControllerI {
         password: hashedPassword,
       },
     });
-    const payload = {
+    const payload: TokenPayload = {
       id: member.id,
       email: member.email,
       name: member.name,
@@ -100,7 +108,7 @@ export default class MemberController implements MemberControllerI {
     if (!token) {
       throw new BadRequestException("You must provide an authentication token in the URL query.");
     }
-    if (typeof token !== 'string') {
+    if (typeof token !== "string") {
       throw new BadRequestException("Invalid auth token.");
     }
     verify(token, SECRET, (error) => {
@@ -108,6 +116,25 @@ export default class MemberController implements MemberControllerI {
         throw new UnauthorizedException();
       }
       return res.status(200).end();
+    });
+  }
+
+  @handleControllerException
+  async delete(req: Request, res: Response) {
+    const auth = req.headers.authorization;
+    if (!auth) {
+      throw new UnauthorizedException("You must provide an authorization header.");
+    }
+    const token = auth.split(" ")[1];
+    verify(token, SECRET, (error) => {
+      if (error) {
+        throw new UnauthorizedException("Invalid authorization token.");
+      }
+      const member = decode(token) as TokenPayload;
+
+      // TODO: delete member
+
+      res.status(200).end();
     });
   }
 }
